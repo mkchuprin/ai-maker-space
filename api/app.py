@@ -21,10 +21,28 @@ app = FastAPI(title="OpenAI Chat API")
 # This allows the API to be accessed from different domains/origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows requests from any origin
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001", 
+        "https://*.vercel.app",
+        "https://*.vercel.com",
+        "*"  # Fallback for any other origins
+    ],
     allow_credentials=True,  # Allows cookies to be included in requests
-    allow_methods=["*"],  # Allows all HTTP methods (GET, POST, etc.)
-    allow_headers=["*"],  # Allows all headers in requests
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Explicit methods
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Origin",
+        "Access-Control-Request-Method",
+        "Access-Control-Request-Headers"
+    ],
+    expose_headers=["Content-Length", "Content-Type"],
+    max_age=86400,  # Cache preflight requests for 24 hours
 )
 
 # Define the data model for chat requests using Pydantic
@@ -39,6 +57,11 @@ class ChatRequest(BaseModel):
 @app.get("/")
 async def root():
     return {"message": "AI Maker Space API is running!"}
+
+# Preflight handler for CORS
+@app.options("/api/chat")
+async def preflight_chat():
+    return {"message": "OK"}
 
 # Define the main chat endpoint that handles POST requests
 @app.post("/api/chat")

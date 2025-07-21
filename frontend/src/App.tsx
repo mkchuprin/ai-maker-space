@@ -47,8 +47,11 @@ function App() {
         
       const response = await fetch(apiUrl, {
         method: 'POST',
+        mode: 'cors',
+        credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'text/plain',
         },
         body: JSON.stringify({
           developer_message: developerMessage,
