@@ -96,58 +96,23 @@
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   padding: 20px;
+  text-align: center;
   border-radius: 20px 20px 0 0;
   position: relative;
   overflow: hidden;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
 
-.header-content {
-  flex: 1;
-}
-
-.header-content h1 {
+.chat-header h1 {
   font-size: 2rem;
   margin-bottom: 5px;
   font-weight: 700;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.header-content p {
+.chat-header p {
   font-size: 1rem;
   opacity: 0.9;
   margin: 0;
-}
-
-.user-info {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-}
-
-.welcome-text {
-  font-size: 0.9rem;
-  opacity: 0.9;
-  font-weight: 500;
-}
-
-.logout-button {
-  padding: 6px 12px;
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 6px;
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.logout-button:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: translateY(-1px);
 }
 
 .chat-header::before {
@@ -458,17 +423,10 @@
   .chat-header {
     padding: 15px;
     border-radius: 15px 15px 0 0;
-    flex-direction: column;
-    gap: 10px;
-    text-align: center;
   }
   
-  .header-content h1 {
+  .chat-header h1 {
     font-size: 1.5rem;
-  }
-  
-  .user-info {
-    align-items: center;
   }
   
   .settings-panel {
@@ -494,7 +452,7 @@
     font-size: 5rem;
   }
   
-  .header-content h1 {
+  .chat-header h1 {
     font-size: 1.3rem;
   }
   

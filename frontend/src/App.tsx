@@ -1,6 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { AuthService } from './auth';
-import Login from './Login';
 import './App.css';
 
 interface Message {
@@ -10,7 +8,6 @@ interface Message {
 }
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -19,12 +16,6 @@ function App() {
   const [model, setModel] = useState('gpt-4.1-mini');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Check if user is already logged in on component mount
-  useEffect(() => {
-    const loggedIn = AuthService.isLoggedIn();
-    setIsLoggedIn(loggedIn);
-  }, []);
-
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -32,17 +23,6 @@ function App() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-  const handleLoginSuccess = () => {
-    setIsLoggedIn(true);
-  };
-
-  const handleLogout = () => {
-    AuthService.logout();
-    setIsLoggedIn(false);
-    setMessages([]);
-    setApiKey('');
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,11 +103,6 @@ function App() {
     setMessages([]);
   };
 
-  // Show login screen if not logged in
-  if (!isLoggedIn) {
-    return <Login onLoginSuccess={handleLoginSuccess} />;
-  }
-
   return (
     <div className="App">
       {/* SnackChat Background Logo */}
@@ -138,12 +113,6 @@ function App() {
           <div className="header-content">
             <h1>🤖 SnackChat</h1>
             <p>AI Maker Space - Chat with AI models powered by OpenAI</p>
-          </div>
-          <div className="user-info">
-            <span className="welcome-text">Welcome, {AuthService.getCurrentUser()}!</span>
-            <button onClick={handleLogout} className="logout-button">
-              🚪 Logout
-            </button>
           </div>
         </header>
 
