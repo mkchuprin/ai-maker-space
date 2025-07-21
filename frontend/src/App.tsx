@@ -15,6 +15,7 @@ function App() {
   const [developerMessage, setDeveloperMessage] = useState('You are a helpful AI assistant.');
   const [model, setModel] = useState('gpt-4.1-mini');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const assistantMessageRef = useRef<string>('');
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -64,7 +65,9 @@ function App() {
       const reader = response.body?.getReader();
       if (!reader) throw new Error('No response body');
 
-      let assistantMessage = '';
+      // Reset the assistant message ref
+      assistantMessageRef.current = '';
+      
       const newAssistantMessage: Message = {
         role: 'assistant',
         content: '',
@@ -78,12 +81,12 @@ function App() {
         if (done) break;
 
         const chunk = new TextDecoder().decode(value);
-        assistantMessage += chunk;
+        assistantMessageRef.current += chunk;
         
         setMessages(prev => 
           prev.map((msg, index) => 
             index === prev.length - 1 && msg.role === 'assistant'
-              ? { ...msg, content: assistantMessage }
+              ? { ...msg, content: assistantMessageRef.current }
               : msg
           )
         );
