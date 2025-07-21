@@ -42,8 +42,8 @@ function App() {
     setIsLoading(true);
 
     try {
-      // Use test endpoint for debugging (doesn't require valid OpenAI API key)
-      const apiUrl = '/api/chat-test';
+      // Use relative URL that works with Vercel's monorepo routing
+      const apiUrl = '/api/chat';
         
       const response = await fetch(apiUrl, {
         method: 'POST',
