@@ -66,6 +66,15 @@ async def chat(request: ChatRequest):
 async def health_check():
     return {"status": "ok"}
 
+# Add a simple test endpoint
+@app.get("/api/test")
+async def test_endpoint():
+    return {"message": "API is working!", "method": "GET"}
+
+@app.post("/api/test")
+async def test_post_endpoint():
+    return {"message": "POST endpoint is working!", "method": "POST"}
+
 # Entry point for running the application directly
 if __name__ == "__main__":
     import uvicorn
