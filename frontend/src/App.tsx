@@ -44,6 +44,19 @@ function App() {
     try {
       // Use relative URL that works with Vercel's monorepo routing
       const apiUrl = '/api/chat';
+      
+      // Debug: Log what we're about to send (masked API key)
+      const requestBody = {
+        developer_message: developerMessage,
+        user_message: userMessage,
+        model: model,
+        api_key: apiKey
+      };
+      
+      console.log('Sending request with:', {
+        ...requestBody,
+        api_key: apiKey ? `${apiKey.substring(0, 10)}...` : 'empty'
+      });
         
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -53,12 +66,7 @@ function App() {
           'Content-Type': 'application/json',
           'Accept': 'text/plain',
         },
-        body: JSON.stringify({
-          developer_message: developerMessage,
-          user_message: userMessage,
-          model: model,
-          api_key: apiKey
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {

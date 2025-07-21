@@ -69,9 +69,18 @@ async def chat(request: ChatRequest):
     try:
         logger.info(f"Received chat request with model: {request.model}")
         
+        # Debug: Log the API key (masked for security)
+        api_key_preview = request.api_key[:10] + "..." if len(request.api_key) > 10 else request.api_key
+        logger.info(f"Received API key: {api_key_preview} (length: {len(request.api_key)})")
+        
         # Validate API key
         if not request.api_key or request.api_key.strip() == "":
             raise HTTPException(status_code=400, detail="API key is required")
+        
+        # Check if API key looks valid (should start with sk-)
+        if not request.api_key.startswith("sk-"):
+            logger.error(f"Invalid API key format: {api_key_preview}")
+            raise HTTPException(status_code=400, detail="Invalid API key format. API key should start with 'sk-'")
         
         # Initialize OpenAI client with the provided API key
         client = OpenAI(api_key=request.api_key)
