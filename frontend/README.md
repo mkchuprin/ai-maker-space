@@ -7,6 +7,7 @@ Welcome to the **AI Maker Space** frontend! This is a beautiful, modern React ch
 - **Real-time Streaming**: Watch AI responses appear in real-time as they're generated
 - **Multiple Models**: Support for GPT-4.1 Mini, GPT-4o, GPT-4o Mini, and GPT-3.5 Turbo
 - **Customizable System Messages**: Define the AI's role and behavior for each conversation
+- **User Authentication**: Secure login system with username/password authentication
 - **Responsive Design**: Works perfectly on desktop, tablet, and mobile devices
 - **Modern UI**: Beautiful gradient design with smooth animations and transitions
 - **Secure API Key Input**: Your OpenAI API key is handled securely
@@ -39,13 +40,61 @@ Welcome to the **AI Maker Space** frontend! This is a beautiful, modern React ch
 4. **Open your browser:**
    The app will automatically open at `http://localhost:3000`
 
+## 🔐 User Authentication
+
+The application includes a login system with username/password authentication.
+
+### Managing Users
+
+To add, remove, or modify users, edit the `frontend/src/users.ts` file:
+
+```typescript
+export const USERS_DATA = `
+# SnackChat Users File
+# Format: username:password
+# Lines starting with # are comments and will be ignored
+
+admin:admin123
+user:password
+demo:demo123
+alice:alice2024
+bob:bob2024
+# Add your new users here
+newuser:newpassword
+`;
+```
+
+### Default Users
+
+The following users are available by default:
+- **admin** / **admin123**
+- **user** / **password**
+- **demo** / **demo123**
+- **alice** / **alice2024**
+- **bob** / **bob2024**
+- **charlie** / **charlie2024**
+- **diana** / **diana2024**
+- **edward** / **edward2024**
+- **fiona** / **fiona2024**
+- **george** / **george2024**
+
+### How to Modify Users
+
+1. **Add a new user**: Add a new line in the format `username:password`
+2. **Remove a user**: Delete the line for that user
+3. **Change a password**: Modify the line for that user
+4. **Add comments**: Use `#` at the beginning of a line for comments
+
+After making changes to `users.ts`, restart the development server for the changes to take effect.
+
 ## 🎯 How to Use
 
-1. **Enter your OpenAI API Key** in the settings panel at the top
-2. **Choose your preferred model** from the dropdown menu
-3. **Customize the system message** to define the AI's role (optional)
-4. **Start chatting!** Type your message and press Enter or click the send button
-5. **Watch the magic happen** as the AI responds in real-time
+1. **Log in** with your username and password
+2. **Enter your OpenAI API Key** in the settings panel at the top
+3. **Choose your preferred model** from the dropdown menu
+4. **Customize the system message** to define the AI's role (optional)
+5. **Start chatting!** Type your message and press Enter or click the send button
+6. **Watch the magic happen** as the AI responds in real-time
 
 ## 🔧 Configuration
 
@@ -68,6 +117,7 @@ Want to make it your own? Here are some easy customizations:
 - **Colors**: Modify the gradient colors in `src/App.css`
 - **Models**: Add or remove model options in `src/App.tsx`
 - **Styling**: Update the CSS classes to match your brand
+- **Users**: Modify the user list in `src/users.ts`
 
 ## 🛠️ Development
 
@@ -86,6 +136,10 @@ frontend/
 ├── src/             # Source code
 │   ├── App.tsx      # Main application component
 │   ├── App.css      # Application styles
+│   ├── Login.tsx    # Login component
+│   ├── Login.css    # Login styles
+│   ├── auth.ts      # Authentication service
+│   ├── users.ts     # User data (modify this to add/remove users)
 │   ├── index.tsx    # Entry point
 │   └── index.css    # Global styles
 ├── package.json     # Dependencies and scripts
@@ -97,6 +151,7 @@ frontend/
 - Your OpenAI API key is stored only in the browser's memory
 - No API keys are sent to any server except OpenAI
 - The frontend communicates directly with your FastAPI backend
+- User passwords are stored in plain text in the source code (for demo purposes)
 - Consider using environment variables for production deployments
 
 ## 🐛 Troubleshooting
@@ -115,8 +170,13 @@ frontend/
 - Ensure you have sufficient credits in your OpenAI account
 - Try testing the API key directly with OpenAI's playground
 
+**Login not working?**
+- Check that the user exists in `src/users.ts`
+- Ensure the username and password match exactly
+- Restart the development server after modifying users
+
 ## 🎉 Ready to Chat!
 
-You're all set! Fire up your backend, start the frontend, and start having amazing conversations with AI. The interface is designed to be intuitive and enjoyable to use.
+You're all set! Fire up your backend, start the frontend, log in, and start having amazing conversations with AI. The interface is designed to be intuitive and enjoyable to use.
 
 Happy chatting! 🚀

@@ -4,6 +4,77 @@
   justify-content: center;
   align-items: center;
   padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* SlapChat Background Logo */
+.slapchat-logo {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 15rem;
+  font-weight: 900;
+  color: rgba(255, 255, 255, 0.03);
+  z-index: -1;
+  pointer-events: none;
+  text-shadow: 0 0 50px rgba(102, 126, 234, 0.1);
+  animation: float 6s ease-in-out infinite;
+  white-space: nowrap;
+  letter-spacing: -0.05em;
+}
+
+.slapchat-logo::before {
+  content: "👋";
+  font-size: 0.8em;
+  position: absolute;
+  top: -0.2em;
+  left: -0.3em;
+  animation: wave 2s ease-in-out infinite;
+  transform-origin: 70% 70%;
+}
+
+.slapchat-logo::after {
+  content: "💥";
+  font-size: 0.6em;
+  position: absolute;
+  top: 0.1em;
+  right: -0.2em;
+  animation: explode 3s ease-in-out infinite;
+  opacity: 0.7;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translate(-50%, -50%) translateY(0px);
+  }
+  50% {
+    transform: translate(-50%, -50%) translateY(-20px);
+  }
+}
+
+@keyframes wave {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(20deg);
+  }
+  75% {
+    transform: rotate(-10deg);
+  }
+}
+
+@keyframes explode {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.2) rotate(180deg);
+    opacity: 1;
+  }
 }
 
 .chat-container {
@@ -17,26 +88,102 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+  z-index: 1;
 }
 
 .chat-header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   padding: 20px;
-  text-align: center;
   border-radius: 20px 20px 0 0;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.chat-header h1 {
+.header-content {
+  flex: 1;
+}
+
+.header-content h1 {
   font-size: 2rem;
   margin-bottom: 5px;
   font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-.chat-header p {
+.header-content p {
   font-size: 1rem;
   opacity: 0.9;
   margin: 0;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.welcome-text {
+  font-size: 0.9rem;
+  opacity: 0.9;
+  font-weight: 500;
+}
+
+.logout-button {
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.logout-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.chat-header::before {
+  content: "👋";
+  position: absolute;
+  top: 10px;
+  left: 20px;
+  font-size: 1.5rem;
+  animation: bounce 2s ease-in-out infinite;
+}
+
+.chat-header::after {
+  content: "💥";
+  position: absolute;
+  top: 10px;
+  right: 20px;
+  font-size: 1.5rem;
+  animation: spin 3s linear infinite;
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .settings-panel {
@@ -100,6 +247,16 @@
 .empty-icon {
   font-size: 4rem;
   margin-bottom: 15px;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
 }
 
 .empty-state h3 {
@@ -289,6 +446,10 @@
     padding: 10px;
   }
   
+  .slapchat-logo {
+    font-size: 8rem;
+  }
+  
   .chat-container {
     height: 95vh;
     border-radius: 15px;
@@ -297,10 +458,17 @@
   .chat-header {
     padding: 15px;
     border-radius: 15px 15px 0 0;
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
   }
   
-  .chat-header h1 {
+  .header-content h1 {
     font-size: 1.5rem;
+  }
+  
+  .user-info {
+    align-items: center;
   }
   
   .settings-panel {
@@ -322,7 +490,11 @@
 }
 
 @media (max-width: 480px) {
-  .chat-header h1 {
+  .slapchat-logo {
+    font-size: 5rem;
+  }
+  
+  .header-content h1 {
     font-size: 1.3rem;
   }
   
