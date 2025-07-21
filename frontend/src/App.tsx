@@ -41,7 +41,12 @@ function App() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/chat', {
+      // Use relative URL that works in both local and production
+      const apiUrl = process.env.NODE_ENV === 'development' 
+        ? 'http://localhost:8000/api/chat'
+        : '/api/chat';
+        
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
