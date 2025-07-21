@@ -30,6 +30,11 @@ class ChatRequest(BaseModel):
     model: Optional[str] = "gpt-4.1-mini"  # Optional model selection with default
     api_key: str          # OpenAI API key for authentication
 
+# Root endpoint for testing
+@app.get("/")
+async def root():
+    return {"message": "AI Maker Space API is running!"}
+
 # Define the main chat endpoint that handles POST requests
 @app.post("/api/chat")
 async def chat(request: ChatRequest):

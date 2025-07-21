@@ -41,8 +41,8 @@ function App() {
     setIsLoading(true);
 
     try {
-      // Use environment variable or fallback to relative URL
-      const apiUrl = process.env.REACT_APP_API_URL || '/api/chat';
+      // Use relative URL that works with Vercel's monorepo routing
+      const apiUrl = '/api/chat';
         
       const response = await fetch(apiUrl, {
         method: 'POST',
