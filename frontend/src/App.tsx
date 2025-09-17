@@ -7,6 +7,19 @@ interface Message {
   timestamp: Date;
 }
 
+interface UploadedPDF {
+  pdf_id: string;
+  filename: string;
+  chunk_count: number;
+}
+
+interface PDFUploadResponse {
+  pdf_id: string;
+  filename: string;
+  message: string;
+  chunk_count: number;
+}
+
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -14,8 +27,13 @@ function App() {
   const [apiKey, setApiKey] = useState('');
   const [developerMessage, setDeveloperMessage] = useState('You are a helpful AI assistant.');
   const [model, setModel] = useState('gpt-4.1-mini');
+  const [uploadedPDFs, setUploadedPDFs] = useState<UploadedPDF[]>([]);
+  const [selectedPDF, setSelectedPDF] = useState<string>('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [chatMode, setChatMode] = useState<'general' | 'pdf'>('general');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const assistantMessageRef = useRef<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -25,9 +43,93 @@ function App() {
     scrollToBottom();
   }, [messages]);
 
+  // Load uploaded PDFs on component mount
+  useEffect(() => {
+    loadUploadedPDFs();
+  }, []);
+
+  const loadUploadedPDFs = async () => {
+    try {
+      const response = await fetch('/api/pdfs');
+      if (response.ok) {
+        const data = await response.json();
+        setUploadedPDFs(data.pdfs);
+      }
+    } catch (error) {
+      console.error('Error loading PDFs:', error);
+    }
+  };
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !apiKey.trim()) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('api_key', apiKey);
+
+    try {
+      const response = await fetch('/api/upload-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result: PDFUploadResponse = await response.json();
+      
+      // Add to uploaded PDFs list
+      const newPDF: UploadedPDF = {
+        pdf_id: result.pdf_id,
+        filename: result.filename,
+        chunk_count: result.chunk_count
+      };
+      
+      setUploadedPDFs(prev => [...prev, newPDF]);
+      setSelectedPDF(result.pdf_id);
+      setChatMode('pdf');
+      
+      // Add success message to chat
+      const successMessage: Message = {
+        role: 'assistant',
+        content: `📄 PDF "${result.filename}" uploaded successfully! Created ${result.chunk_count} text chunks. You can now ask questions about this document.`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, successMessage]);
+
+    } catch (error) {
+      console.error('Error uploading PDF:', error);
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: `❌ Error uploading PDF: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputMessage.trim() || !apiKey.trim()) return;
+
+    // Check if PDF mode is selected but no PDF is chosen
+    if (chatMode === 'pdf' && !selectedPDF) {
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: 'Please upload a PDF first or switch to general chat mode.',
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      return;
+    }
 
     const userMessage = inputMessage.trim();
     setInputMessage('');
@@ -42,16 +144,28 @@ function App() {
     setIsLoading(true);
 
     try {
-      // Use relative URL that works with Vercel's monorepo routing
-      const apiUrl = '/api/chat';
+      let apiUrl: string;
+      let requestBody: any;
       
-      // Debug: Log what we're about to send (masked API key)
-      const requestBody = {
-        developer_message: developerMessage,
-        user_message: userMessage,
-        model: model,
-        api_key: apiKey
-      };
+      if (chatMode === 'pdf') {
+        // PDF RAG chat
+        apiUrl = '/api/pdf-chat';
+        requestBody = {
+          user_message: userMessage,
+          pdf_id: selectedPDF,
+          model: model,
+          api_key: apiKey
+        };
+      } else {
+        // General chat
+        apiUrl = '/api/chat';
+        requestBody = {
+          developer_message: developerMessage,
+          user_message: userMessage,
+          model: model,
+          api_key: apiKey
+        };
+      }
       
       console.log('Sending request with:', {
         ...requestBody,
@@ -162,24 +276,92 @@ function App() {
           </div>
 
           <div className="setting-group">
-            <label htmlFor="developerMessage">System Message:</label>
-            <textarea
-              id="developerMessage"
-              value={developerMessage}
-              onChange={(e) => setDeveloperMessage(e.target.value)}
-              placeholder="Define the AI's role and behavior"
-              className="developer-message-input"
-              rows={3}
-            />
+            <label htmlFor="chatMode">Chat Mode:</label>
+            <select
+              id="chatMode"
+              value={chatMode}
+              onChange={(e) => setChatMode(e.target.value as 'general' | 'pdf')}
+              className="model-select"
+            >
+              <option value="general">General Chat</option>
+              <option value="pdf">PDF RAG Chat</option>
+            </select>
           </div>
+
+          {chatMode === 'general' && (
+            <div className="setting-group">
+              <label htmlFor="developerMessage">System Message:</label>
+              <textarea
+                id="developerMessage"
+                value={developerMessage}
+                onChange={(e) => setDeveloperMessage(e.target.value)}
+                placeholder="Define the AI's role and behavior"
+                className="developer-message-input"
+                rows={3}
+              />
+            </div>
+          )}
+
+          {chatMode === 'pdf' && (
+            <div className="setting-group">
+              <label htmlFor="pdfUpload">Upload PDF:</label>
+              <div className="pdf-upload-container">
+                <input
+                  ref={fileInputRef}
+                  id="pdfUpload"
+                  type="file"
+                  accept=".pdf"
+                  onChange={handleFileUpload}
+                  className="pdf-file-input"
+                  disabled={!apiKey.trim() || isUploading}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={!apiKey.trim() || isUploading}
+                  className="pdf-upload-button"
+                >
+                  {isUploading ? '⏳ Uploading...' : '📄 Upload PDF'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {chatMode === 'pdf' && uploadedPDFs.length > 0 && (
+            <div className="setting-group">
+              <label htmlFor="selectedPDF">Select PDF:</label>
+              <select
+                id="selectedPDF"
+                value={selectedPDF}
+                onChange={(e) => setSelectedPDF(e.target.value)}
+                className="model-select"
+              >
+                <option value="">Choose a PDF...</option>
+                {uploadedPDFs.map((pdf) => (
+                  <option key={pdf.pdf_id} value={pdf.pdf_id}>
+                    {pdf.filename} ({pdf.chunk_count} chunks)
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="messages-container">
           {messages.length === 0 && !isLoading && (
             <div className="empty-state">
-              <div className="empty-icon">💬</div>
-              <h3>Start a conversation!</h3>
-              <p>Enter your message below to begin chatting with the AI.</p>
+              <div className="empty-icon">
+                {chatMode === 'pdf' ? '📄' : '💬'}
+              </div>
+              <h3>
+                {chatMode === 'pdf' ? 'Upload a PDF to get started!' : 'Start a conversation!'}
+              </h3>
+              <p>
+                {chatMode === 'pdf' 
+                  ? 'Upload a PDF document and ask questions about its content using AI-powered RAG.'
+                  : 'Enter your message below to begin chatting with the AI.'
+                }
+              </p>
             </div>
           )}
           
@@ -225,13 +407,26 @@ function App() {
               type="text"
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              placeholder="Type your message here..."
-              disabled={isLoading || !apiKey.trim()}
+              placeholder={
+                chatMode === 'pdf' 
+                  ? (selectedPDF ? "Ask a question about your PDF..." : "Upload a PDF first...")
+                  : "Type your message here..."
+              }
+              disabled={
+                isLoading || 
+                !apiKey.trim() || 
+                (chatMode === 'pdf' && !selectedPDF)
+              }
               className="message-input"
             />
             <button
               type="submit"
-              disabled={isLoading || !inputMessage.trim() || !apiKey.trim()}
+              disabled={
+                isLoading || 
+                !inputMessage.trim() || 
+                !apiKey.trim() || 
+                (chatMode === 'pdf' && !selectedPDF)
+              }
               className="send-button"
             >
               {isLoading ? '⏳' : '📤'}
