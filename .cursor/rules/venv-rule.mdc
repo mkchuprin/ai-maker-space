@@ -1,0 +1,6 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+Always work with uv, install all requirements in a venv, don't install anything to the global env. Always run everything in the virtual env. 
