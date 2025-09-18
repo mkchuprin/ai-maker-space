@@ -24,7 +24,11 @@ interface InterviewResponse {
   session_id: string;
   question?: string;
   is_complete: boolean;
-  mermaid_diagram?: string;
+  sequence_diagram?: string;
+  high_level_design?: string;
+  database_schema?: string;
+  api_design?: string;
+  deployment_diagram?: string;
   system_design?: string;
   progress: number;
 }
@@ -49,6 +53,16 @@ function App() {
   const [mermaidDiagram, setMermaidDiagram] = useState<string>('');
   const [systemDesign, setSystemDesign] = useState<string>('');
   const [interviewStarted, setInterviewStarted] = useState<boolean>(false);
+  const [selectedOption, setSelectedOption] = useState<string>('');
+  // Output preferences
+  const [outputPreferences, setOutputPreferences] = useState({
+    sequenceDiagram: true,
+    highLevelDesign: true,
+    databaseSchema: false,
+    apiDesign: false,
+    deploymentDiagram: false,
+    systemDesignDoc: true
+  });
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const assistantMessageRef = useRef<string>('');
@@ -135,6 +149,13 @@ function App() {
     }
   };
 
+  const handleOutputPreferenceChange = (preference: string) => {
+    setOutputPreferences(prev => ({
+      ...prev,
+      [preference]: !prev[preference as keyof typeof prev]
+    }));
+  };
+
   const startInterview = async () => {
     if (!systemRequirements.trim() || !apiKey.trim()) {
       alert('Please enter system requirements and API key');
@@ -154,7 +175,8 @@ function App() {
         body: JSON.stringify({
           session_id: sessionId,
           system_requirements: systemRequirements,
-          api_key: apiKey
+          api_key: apiKey,
+          output_preferences: outputPreferences
         }),
       });
 
@@ -215,13 +237,34 @@ function App() {
 
       if (result.is_complete) {
         setIsInterviewComplete(true);
-        setMermaidDiagram(result.mermaid_diagram || '');
+        setMermaidDiagram(result.sequence_diagram || '');
         setSystemDesign(result.system_design || '');
 
-        // Add final results to messages
+        // Build completion message with selected outputs
+        let completionContent = '🎉 Interview Complete! Here are your requested outputs:\n\n';
+        
+        if (result.sequence_diagram) {
+          completionContent += `**📊 Sequence Diagram (Mermaid):**\n\`\`\`\n${result.sequence_diagram}\n\`\`\`\n\n`;
+        }
+        if (result.high_level_design) {
+          completionContent += `**🏗️ High-Level Architecture:**\n\`\`\`\n${result.high_level_design}\n\`\`\`\n\n`;
+        }
+        if (result.database_schema) {
+          completionContent += `**🗄️ Database Schema:**\n\`\`\`\n${result.database_schema}\n\`\`\`\n\n`;
+        }
+        if (result.api_design) {
+          completionContent += `**🔌 API Design:**\n${result.api_design}\n\n`;
+        }
+        if (result.deployment_diagram) {
+          completionContent += `**🚀 Deployment Architecture:**\n\`\`\`\n${result.deployment_diagram}\n\`\`\`\n\n`;
+        }
+        if (result.system_design) {
+          completionContent += `**📋 System Design Document:**\n${result.system_design}`;
+        }
+
         const completionMessage: Message = {
           role: 'assistant',
-          content: `🎉 Interview Complete! Here's your system design:\n\n**Mermaid Diagram:**\n\`\`\`\n${result.mermaid_diagram}\n\`\`\`\n\n**System Design:**\n${result.system_design}`,
+          content: completionContent,
           timestamp: new Date()
         };
         setMessages(prev => [...prev, completionMessage]);
@@ -472,6 +515,64 @@ function App() {
                 rows={2}
                 disabled={interviewStarted}
               />
+            </div>
+          )}
+
+          {chatMode === 'interview' && !interviewStarted && (
+            <div className="setting-group">
+              <label>What outputs do you want? (Select all that apply):</label>
+              <div className="output-preferences">
+                <div className="checkbox-group">
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={outputPreferences.sequenceDiagram}
+                      onChange={() => handleOutputPreferenceChange('sequenceDiagram')}
+                    />
+                    📊 Sequence Diagram (Mermaid)
+                  </label>
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={outputPreferences.highLevelDesign}
+                      onChange={() => handleOutputPreferenceChange('highLevelDesign')}
+                    />
+                    🏗️ High-Level Architecture Diagram
+                  </label>
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={outputPreferences.databaseSchema}
+                      onChange={() => handleOutputPreferenceChange('databaseSchema')}
+                    />
+                    🗄️ Database Schema Diagram
+                  </label>
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={outputPreferences.apiDesign}
+                      onChange={() => handleOutputPreferenceChange('apiDesign')}
+                    />
+                    🔌 API Design & Endpoints
+                  </label>
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={outputPreferences.deploymentDiagram}
+                      onChange={() => handleOutputPreferenceChange('deploymentDiagram')}
+                    />
+                    🚀 Deployment Architecture
+                  </label>
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={outputPreferences.systemDesignDoc}
+                      onChange={() => handleOutputPreferenceChange('systemDesignDoc')}
+                    />
+                    📋 Complete System Design Document
+                  </label>
+                </div>
+              </div>
             </div>
           )}
 

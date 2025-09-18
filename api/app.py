@@ -90,6 +90,7 @@ class InterviewStartRequest(BaseModel):
     session_id: str
     system_requirements: str
     api_key: str
+    output_preferences: Optional[Dict[str, bool]] = None
 
 class InterviewQuestionRequest(BaseModel):
     session_id: str
@@ -100,7 +101,11 @@ class InterviewResponse(BaseModel):
     session_id: str
     question: Optional[str] = None
     is_complete: bool = False
-    mermaid_diagram: Optional[str] = None
+    sequence_diagram: Optional[str] = None
+    high_level_design: Optional[str] = None
+    database_schema: Optional[str] = None
+    api_design: Optional[str] = None
+    deployment_diagram: Optional[str] = None
     system_design: Optional[str] = None
     progress: int = 0
 
@@ -292,7 +297,15 @@ async def start_interview(request: InterviewStartRequest):
             "requirements": request.system_requirements,
             "current_question": 0,
             "answers": [],
-            "api_key": request.api_key
+            "api_key": request.api_key,
+            "output_preferences": request.output_preferences or {
+                "sequenceDiagram": True,
+                "highLevelDesign": True,
+                "databaseSchema": False,
+                "apiDesign": False,
+                "deploymentDiagram": False,
+                "systemDesignDoc": True
+            }
         }
         
         # Generate first question
@@ -324,14 +337,18 @@ async def answer_question(request: InterviewQuestionRequest):
         
         # Check if we have enough answers (5 questions total)
         if session["current_question"] >= 5:
-            # Generate final system design and mermaid diagram
-            mermaid_diagram, system_design = await generate_final_design(request.session_id)
+            # Generate final designs based on user preferences
+            outputs = await generate_final_design(request.session_id)
             
             return InterviewResponse(
                 session_id=request.session_id,
                 is_complete=True,
-                mermaid_diagram=mermaid_diagram,
-                system_design=system_design,
+                sequence_diagram=outputs.get("sequence_diagram"),
+                high_level_design=outputs.get("high_level_design"),
+                database_schema=outputs.get("database_schema"),
+                api_design=outputs.get("api_design"),
+                deployment_diagram=outputs.get("deployment_diagram"),
+                system_design=outputs.get("system_design"),
                 progress=100
             )
         
@@ -366,18 +383,58 @@ async def generate_interview_question(session_id: str, requirements: str, previo
         relevant_chunks = system_design_knowledge.search_by_text(search_query, k=3, return_as_text=True)
         context = "\n".join(relevant_chunks)
     
-    # Question templates based on common system design interview flow
+    # Question templates with multiple choice options for easier answering
     question_templates = [
-        "Let's start with requirements gathering. Can you clarify the functional and non-functional requirements for this system? What scale are we targeting (users, requests per second, data volume)?",
-        "Now let's discuss the high-level architecture. What are the main components you would include in this system? How would they interact with each other?",
-        "Let's dive deeper into the database design. What type of database would you choose and why? How would you structure the data schema?",
-        "How would you handle scalability concerns? What strategies would you use for scaling different parts of the system (database, application servers, etc.)?",
-        "Finally, let's discuss reliability and monitoring. How would you ensure the system is fault-tolerant? What would you monitor and how would you handle failures?"
+        {
+            "question": "Let's start with scale estimation. What's your expected user base and traffic for this system?",
+            "options": [
+                "A) Small scale: <10K users, <100 requests/sec",
+                "B) Medium scale: 10K-1M users, 100-10K requests/sec", 
+                "C) Large scale: 1M-100M users, 10K-100K requests/sec",
+                "D) Massive scale: >100M users, >100K requests/sec"
+            ]
+        },
+        {
+            "question": "What's your preferred high-level architecture pattern for this system?",
+            "options": [
+                "A) Monolithic architecture with single database",
+                "B) Microservices with API gateway and service mesh",
+                "C) Serverless functions with managed services",
+                "D) Hybrid approach mixing monolith and microservices"
+            ]
+        },
+        {
+            "question": "Which database strategy would you choose for the core data storage?",
+            "options": [
+                "A) Single SQL database (PostgreSQL/MySQL) with read replicas",
+                "B) NoSQL database (MongoDB/DynamoDB) for flexibility",
+                "C) Multi-database approach (SQL + NoSQL + Cache)",
+                "D) Distributed database system (Cassandra/CockroachDB)"
+            ]
+        },
+        {
+            "question": "How would you handle scaling and performance optimization?",
+            "options": [
+                "A) Vertical scaling with powerful servers and caching",
+                "B) Horizontal scaling with load balancers and CDN",
+                "C) Auto-scaling with cloud services and containers",
+                "D) Global distribution with multiple data centers"
+            ]
+        },
+        {
+            "question": "What's your approach to reliability and fault tolerance?",
+            "options": [
+                "A) Basic monitoring with backup systems and alerts",
+                "B) Circuit breakers, retries, and graceful degradation",
+                "C) Multi-region deployment with disaster recovery",
+                "D) Chaos engineering and self-healing systems"
+            ]
+        }
     ]
     
-    base_question = question_templates[min(question_number - 1, len(question_templates) - 1)]
+    base_question_template = question_templates[min(question_number - 1, len(question_templates) - 1)]
     
-    # Use AI to generate a contextual question
+    # Use AI to customize the question for the specific system
     chat_model = ChatOpenAI(model_name="gpt-4o-mini")
     
     system_prompt = f"""You are conducting a system design interview. The candidate needs to design: {requirements}
@@ -388,28 +445,42 @@ CONTEXT FROM SYSTEM DESIGN KNOWLEDGE:
 Current question number: {question_number}/5
 Previous answer: {previous_answer or "None (this is the first question)"}
 
-Generate a specific, detailed follow-up question that:
-1. Builds on the previous answer if provided
-2. Uses the system design knowledge context
-3. Focuses on the aspect indicated by the base question: {base_question}
-4. Is specific to the system being designed
-5. Encourages detailed technical discussion
+Base question template: {base_question_template['question']}
+Available options: {chr(10).join(base_question_template['options'])}
 
-Keep the question concise but thorough."""
+Customize the question to be specific for designing "{requirements}" while keeping the multiple choice format. 
+Make the question clear and the options relevant to this specific system.
+
+Return the response in this exact format:
+QUESTION: [your customized question]
+OPTIONS:
+A) [option A]
+B) [option B] 
+C) [option C]
+D) [option D]
+
+Keep it concise and focused on the specific system being designed."""
     
     messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"Generate the next interview question for designing: {requirements}"}
+        {"role": "user", "content": f"Customize the question for designing: {requirements}"}
     ]
     
     response = chat_model.run(messages)
+    
+    # If AI customization fails, fall back to template
+    if "QUESTION:" not in response or "OPTIONS:" not in response:
+        formatted_question = f"{base_question_template['question']}\n\nOptions:\n" + "\n".join(base_question_template['options'])
+        return formatted_question
+    
     return response
 
-async def generate_final_design(session_id: str) -> tuple[str, str]:
-    """Generate final mermaid diagram and system design document."""
+async def generate_final_design(session_id: str) -> Dict[str, str]:
+    """Generate final designs based on user preferences."""
     session = interview_sessions[session_id]
     requirements = session["requirements"]
     answers = session["answers"]
+    preferences = session["output_preferences"]
     
     # Get comprehensive context from system design knowledge
     context = ""
@@ -429,17 +500,21 @@ async def generate_final_design(session_id: str) -> tuple[str, str]:
         context = "\n".join(set(all_chunks))  # Remove duplicates
     
     chat_model = ChatOpenAI(model_name="gpt-4o")
+    outputs = {}
     
-    # Generate Mermaid diagram
-    mermaid_prompt = f"""Based on the system design interview for: {requirements}
+    base_context = f"""Based on the system design interview for: {requirements}
 
 ANSWERS PROVIDED:
 {chr(10).join([f"Q{i+1}: {answer}" for i, answer in enumerate(answers)])}
 
 SYSTEM DESIGN KNOWLEDGE CONTEXT:
-{context}
+{context}"""
 
-Generate a detailed Mermaid sequence diagram that shows the flow of a typical user request through the system. 
+    # Generate Sequence Diagram
+    if preferences.get("sequenceDiagram", False):
+        sequence_prompt = f"""{base_context}
+
+Generate a detailed Mermaid sequence diagram showing the flow of a typical user request through the system.
 
 Requirements:
 1. Use proper Mermaid sequence diagram syntax
@@ -447,26 +522,87 @@ Requirements:
 3. Show the complete request/response flow
 4. Include error handling paths
 5. Add notes for important design decisions
-6. Make it production-ready and comprehensive
-7. Return ONLY the mermaid code, no markdown formatting, no explanations
+6. Return ONLY the mermaid code, no markdown formatting, no explanations
 
 The output should be ready to copy-paste into mermaid.live"""
 
-    mermaid_messages = [
-        {"role": "system", "content": "You are a senior system architect. Generate only the mermaid sequence diagram code."},
-        {"role": "user", "content": mermaid_prompt}
-    ]
-    
-    mermaid_diagram = chat_model.run(mermaid_messages)
-    
-    # Generate system design document
-    design_prompt = f"""Based on the system design interview for: {requirements}
+        messages = [{"role": "system", "content": "You are a senior system architect. Generate only the mermaid sequence diagram code."}, {"role": "user", "content": sequence_prompt}]
+        outputs["sequence_diagram"] = chat_model.run(messages)
 
-ANSWERS PROVIDED:
-{chr(10).join([f"Q{i+1}: {answer}" for i, answer in enumerate(answers)])}
+    # Generate High-Level Design
+    if preferences.get("highLevelDesign", False):
+        design_prompt = f"""{base_context}
 
-SYSTEM DESIGN KNOWLEDGE CONTEXT:
-{context}
+Generate a Mermaid architecture diagram showing the high-level system components and their relationships.
+
+Requirements:
+1. Use Mermaid graph or flowchart syntax
+2. Show all major system components (load balancer, services, databases, caches, external APIs)
+3. Include data flow and component relationships
+4. Add labels for technologies and patterns used
+5. Return ONLY the mermaid code, no markdown formatting
+
+The output should be ready to copy-paste into mermaid.live"""
+
+        messages = [{"role": "system", "content": "Generate only the mermaid architecture diagram code."}, {"role": "user", "content": design_prompt}]
+        outputs["high_level_design"] = chat_model.run(messages)
+
+    # Generate Database Schema
+    if preferences.get("databaseSchema", False):
+        db_prompt = f"""{base_context}
+
+Generate a Mermaid ER diagram showing the database schema and relationships.
+
+Requirements:
+1. Use Mermaid ER diagram syntax
+2. Show all entities, attributes, and relationships
+3. Include primary keys, foreign keys, and indexes
+4. Add cardinality information
+5. Return ONLY the mermaid code, no markdown formatting
+
+The output should be ready to copy-paste into mermaid.live"""
+
+        messages = [{"role": "system", "content": "Generate only the mermaid ER diagram code."}, {"role": "user", "content": db_prompt}]
+        outputs["database_schema"] = chat_model.run(messages)
+
+    # Generate API Design
+    if preferences.get("apiDesign", False):
+        api_prompt = f"""{base_context}
+
+Generate a comprehensive API design document with all endpoints, request/response formats, and authentication.
+
+Include:
+1. RESTful API endpoints with HTTP methods
+2. Request/response schemas
+3. Authentication and authorization
+4. Error handling
+5. Rate limiting and pagination
+6. API versioning strategy"""
+
+        messages = [{"role": "system", "content": "Generate a detailed API design document."}, {"role": "user", "content": api_prompt}]
+        outputs["api_design"] = chat_model.run(messages)
+
+    # Generate Deployment Diagram
+    if preferences.get("deploymentDiagram", False):
+        deployment_prompt = f"""{base_context}
+
+Generate a Mermaid deployment diagram showing how the system is deployed in production.
+
+Requirements:
+1. Use Mermaid deployment or graph syntax
+2. Show servers, containers, load balancers, databases
+3. Include cloud services and infrastructure components
+4. Show network boundaries and security zones
+5. Return ONLY the mermaid code, no markdown formatting
+
+The output should be ready to copy-paste into mermaid.live"""
+
+        messages = [{"role": "system", "content": "Generate only the mermaid deployment diagram code."}, {"role": "user", "content": deployment_prompt}]
+        outputs["deployment_diagram"] = chat_model.run(messages)
+
+    # Generate System Design Document
+    if preferences.get("systemDesignDoc", False):
+        doc_prompt = f"""{base_context}
 
 Generate a comprehensive, production-ready system design document that includes:
 
@@ -483,14 +619,10 @@ Generate a comprehensive, production-ready system design document that includes:
 
 Make it detailed, technical, and production-ready. Include specific technologies, patterns, and best practices."""
 
-    design_messages = [
-        {"role": "system", "content": "You are a senior system architect creating production-ready system designs."},
-        {"role": "user", "content": design_prompt}
-    ]
+        messages = [{"role": "system", "content": "You are a senior system architect creating production-ready system designs."}, {"role": "user", "content": doc_prompt}]
+        outputs["system_design"] = chat_model.run(messages)
     
-    system_design = chat_model.run(design_messages)
-    
-    return mermaid_diagram, system_design
+    return outputs
 
 # Preflight handler for CORS
 @app.options("/api/chat")
