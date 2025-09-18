@@ -218,9 +218,8 @@ function App() {
         },
         body: JSON.stringify({
           session_id: interviewSession,
-          answer: answer,
-          api_key: apiKey,
-          model: model
+          user_answer: answer,
+          api_key: apiKey
         }),
       });
 
