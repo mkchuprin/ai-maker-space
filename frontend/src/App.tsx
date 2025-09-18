@@ -63,6 +63,15 @@ function App() {
     deploymentDiagram: false,
     systemDesignDoc: true
   });
+  // Store all generated outputs for downloading
+  const [generatedOutputs, setGeneratedOutputs] = useState<{
+    sequence_diagram?: string;
+    high_level_design?: string;
+    database_schema?: string;
+    api_design?: string;
+    deployment_diagram?: string;
+    system_design?: string;
+  }>({});
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const assistantMessageRef = useRef<string>('');
@@ -156,6 +165,120 @@ function App() {
     }));
   };
 
+  const downloadFile = (content: string, filename: string, contentType: string = 'text/plain') => {
+    const blob = new Blob([content], { type: contentType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadMermaidFile = (content: string, filename: string) => {
+    // For Mermaid files, we want plain text with .mmd extension for mermaid.live
+    downloadFile(content, `${filename}.mmd`, 'text/plain');
+  };
+
+  const downloadMarkdownFile = (content: string, filename: string) => {
+    downloadFile(content, `${filename}.md`, 'text/markdown');
+  };
+
+  const downloadAllOutputs = () => {
+    const systemName = systemRequirements.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+    const timestamp = new Date().toISOString().split('T')[0];
+    
+    Object.entries(generatedOutputs).forEach(([key, content]) => {
+      if (!content) return;
+      
+      let filename: string;
+      let isMermaid = false;
+      
+      switch (key) {
+        case 'sequence_diagram':
+          filename = `${systemName}_sequence_diagram_${timestamp}`;
+          isMermaid = true;
+          break;
+        case 'high_level_design':
+          filename = `${systemName}_architecture_diagram_${timestamp}`;
+          isMermaid = true;
+          break;
+        case 'database_schema':
+          filename = `${systemName}_database_schema_${timestamp}`;
+          isMermaid = true;
+          break;
+        case 'deployment_diagram':
+          filename = `${systemName}_deployment_diagram_${timestamp}`;
+          isMermaid = true;
+          break;
+        case 'api_design':
+          filename = `${systemName}_api_design_${timestamp}`;
+          break;
+        case 'system_design':
+          filename = `${systemName}_system_design_${timestamp}`;
+          break;
+        default:
+          filename = `${systemName}_${key}_${timestamp}`;
+      }
+      
+      if (isMermaid) {
+        downloadMermaidFile(content, filename);
+      } else {
+        // Wrap non-mermaid content in markdown format
+        const markdownContent = key === 'system_design' 
+          ? content 
+          : `# ${filename.replace(/_/g, ' ').toUpperCase()}\n\n${content}`;
+        downloadMarkdownFile(markdownContent, filename);
+      }
+    });
+  };
+
+  const downloadSingleOutput = (key: string, content: string) => {
+    const systemName = systemRequirements.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+    const timestamp = new Date().toISOString().split('T')[0];
+    
+    let filename: string;
+    let isMermaid = false;
+    
+    switch (key) {
+      case 'sequence_diagram':
+        filename = `${systemName}_sequence_diagram_${timestamp}`;
+        isMermaid = true;
+        break;
+      case 'high_level_design':
+        filename = `${systemName}_architecture_diagram_${timestamp}`;
+        isMermaid = true;
+        break;
+      case 'database_schema':
+        filename = `${systemName}_database_schema_${timestamp}`;
+        isMermaid = true;
+        break;
+      case 'deployment_diagram':
+        filename = `${systemName}_deployment_diagram_${timestamp}`;
+        isMermaid = true;
+        break;
+      case 'api_design':
+        filename = `${systemName}_api_design_${timestamp}`;
+        break;
+      case 'system_design':
+        filename = `${systemName}_system_design_${timestamp}`;
+        break;
+      default:
+        filename = `${systemName}_${key}_${timestamp}`;
+    }
+    
+    if (isMermaid) {
+      downloadMermaidFile(content, filename);
+    } else {
+      const markdownContent = key === 'system_design' 
+        ? content 
+        : `# ${filename.replace(/_/g, ' ').toUpperCase()}\n\n${content}`;
+      downloadMarkdownFile(markdownContent, filename);
+    }
+  };
+
   const startInterview = async () => {
     if (!systemRequirements.trim() || !apiKey.trim()) {
       alert('Please enter system requirements and API key');
@@ -240,27 +363,40 @@ function App() {
         setMermaidDiagram(result.sequence_diagram || '');
         setSystemDesign(result.system_design || '');
 
-        // Build completion message with selected outputs
-        let completionContent = '🎉 Interview Complete! Here are your requested outputs:\n\n';
+        // Store all generated outputs for downloading
+        setGeneratedOutputs({
+          sequence_diagram: result.sequence_diagram,
+          high_level_design: result.high_level_design,
+          database_schema: result.database_schema,
+          api_design: result.api_design,
+          deployment_diagram: result.deployment_diagram,
+          system_design: result.system_design
+        });
+
+        // Build completion message with download instructions
+        let completionContent = '🎉 Interview Complete! Your outputs are ready for download.\n\n';
+        completionContent += '📁 **Available Downloads:**\n';
         
         if (result.sequence_diagram) {
-          completionContent += `**📊 Sequence Diagram (Mermaid):**\n\`\`\`\n${result.sequence_diagram}\n\`\`\`\n\n`;
+          completionContent += '• 📊 Sequence Diagram (.mmd for mermaid.live)\n';
         }
         if (result.high_level_design) {
-          completionContent += `**🏗️ High-Level Architecture:**\n\`\`\`\n${result.high_level_design}\n\`\`\`\n\n`;
+          completionContent += '• 🏗️ High-Level Architecture (.mmd for mermaid.live)\n';
         }
         if (result.database_schema) {
-          completionContent += `**🗄️ Database Schema:**\n\`\`\`\n${result.database_schema}\n\`\`\`\n\n`;
+          completionContent += '• 🗄️ Database Schema (.mmd for mermaid.live)\n';
         }
         if (result.api_design) {
-          completionContent += `**🔌 API Design:**\n${result.api_design}\n\n`;
+          completionContent += '• 🔌 API Design (.md markdown file)\n';
         }
         if (result.deployment_diagram) {
-          completionContent += `**🚀 Deployment Architecture:**\n\`\`\`\n${result.deployment_diagram}\n\`\`\`\n\n`;
+          completionContent += '• 🚀 Deployment Architecture (.mmd for mermaid.live)\n';
         }
         if (result.system_design) {
-          completionContent += `**📋 System Design Document:**\n${result.system_design}`;
+          completionContent += '• 📋 System Design Document (.md markdown file)\n';
         }
+
+        completionContent += '\n💡 **Tip:** .mmd files can be directly opened in mermaid.live, .md files can be viewed in any markdown editor!';
 
         const completionMessage: Message = {
           role: 'assistant',
@@ -647,6 +783,74 @@ function App() {
             </div>
           )}
         </div>
+
+        {/* Download Section - Show after interview completion */}
+        {chatMode === 'interview' && isInterviewComplete && Object.keys(generatedOutputs).some(key => generatedOutputs[key as keyof typeof generatedOutputs]) && (
+          <div className="download-section">
+            <h3>📁 Download Your Files</h3>
+            <div className="download-buttons">
+              <button
+                onClick={downloadAllOutputs}
+                className="download-all-button"
+              >
+                📦 Download All Files
+              </button>
+              <div className="individual-downloads">
+                {generatedOutputs.sequence_diagram && (
+                  <button
+                    onClick={() => downloadSingleOutput('sequence_diagram', generatedOutputs.sequence_diagram!)}
+                    className="download-single-button"
+                  >
+                    📊 Sequence.mmd
+                  </button>
+                )}
+                {generatedOutputs.high_level_design && (
+                  <button
+                    onClick={() => downloadSingleOutput('high_level_design', generatedOutputs.high_level_design!)}
+                    className="download-single-button"
+                  >
+                    🏗️ Architecture.mmd
+                  </button>
+                )}
+                {generatedOutputs.database_schema && (
+                  <button
+                    onClick={() => downloadSingleOutput('database_schema', generatedOutputs.database_schema!)}
+                    className="download-single-button"
+                  >
+                    🗄️ Database.mmd
+                  </button>
+                )}
+                {generatedOutputs.api_design && (
+                  <button
+                    onClick={() => downloadSingleOutput('api_design', generatedOutputs.api_design!)}
+                    className="download-single-button"
+                  >
+                    🔌 API.md
+                  </button>
+                )}
+                {generatedOutputs.deployment_diagram && (
+                  <button
+                    onClick={() => downloadSingleOutput('deployment_diagram', generatedOutputs.deployment_diagram!)}
+                    className="download-single-button"
+                  >
+                    🚀 Deployment.mmd
+                  </button>
+                )}
+                {generatedOutputs.system_design && (
+                  <button
+                    onClick={() => downloadSingleOutput('system_design', generatedOutputs.system_design!)}
+                    className="download-single-button"
+                  >
+                    📋 SystemDesign.md
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="download-tip">
+              💡 <strong>Tip:</strong> .mmd files open directly in mermaid.live, .md files work with any markdown editor!
+            </p>
+          </div>
+        )}
 
         <div className="messages-container">
           {messages.length === 0 && !isLoading && (

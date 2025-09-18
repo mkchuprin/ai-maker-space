@@ -590,6 +590,102 @@
   }
 }
 
+/* Download Section Styles */
+.download-section {
+  background: #f8f9fa;
+  border: 2px solid #28a745;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 15px 20px;
+  text-align: center;
+}
+
+.download-section h3 {
+  color: #28a745;
+  margin-bottom: 15px;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.download-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  align-items: center;
+}
+
+.download-all-button {
+  background: linear-gradient(135deg, #28a745, #20c997);
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+}
+
+.download-all-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+}
+
+.individual-downloads {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  width: 100%;
+  max-width: 600px;
+}
+
+.download-single-button {
+  background: white;
+  color: #495057;
+  border: 2px solid #28a745;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.download-single-button:hover {
+  background: #28a745;
+  color: white;
+  transform: translateY(-1px);
+}
+
+.download-tip {
+  margin-top: 15px;
+  font-size: 0.9rem;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.download-tip strong {
+  color: #28a745;
+}
+
+@media (max-width: 768px) {
+  .download-section {
+    margin: 10px 15px;
+    padding: 15px;
+  }
+  
+  .individual-downloads {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  
+  .download-single-button {
+    font-size: 0.8rem;
+    padding: 6px 10px;
+  }
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
   .App {

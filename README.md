@@ -89,11 +89,18 @@ npm start
 2. **Enter your OpenAI API key** (keep it secret, keep it safe! 🧙‍♂️)
 3. **Make sure "System Design Interview" mode is selected** (it's the default because it's awesome)
 4. **Enter what you want to design** (e.g., "Design a chat application like WhatsApp")
-5. **Click "🎯 Start System Design Interview"**
-6. **Answer 5 thoughtful questions** while the AI uses your PDF knowledge
-7. **Get mind-blowing results:**
-   - A Mermaid diagram ready for mermaid.live
-   - A production-ready system design document
+5. **Choose your outputs** with the fancy checkboxes:
+   - 📊 Sequence Diagram (Mermaid)
+   - 🏗️ High-Level Architecture Diagram
+   - 🗄️ Database Schema Diagram
+   - 🔌 API Design & Endpoints
+   - 🚀 Deployment Architecture
+   - 📋 Complete System Design Document
+6. **Click "🎯 Start System Design Interview"**
+7. **Answer 5 multiple choice questions** (A, B, C, or D - super easy!)
+8. **Get mind-blowing results** based on your selections:
+   - Multiple Mermaid diagrams ready for mermaid.live
+   - Production-ready documentation
    - The satisfaction of a job well done
 
 ## 🎨 Sample Mermaid Output (Ready for mermaid.live!)
@@ -191,9 +198,11 @@ npm start
 ## 🎉 What Makes This Special?
 
 - **🧠 Smart Context:** Uses YOUR PDFs to generate questions
-- **🎯 Structured Flow:** 5-question format covering all system design aspects
+- **🎯 Multiple Choice:** Easy A/B/C/D format questions (no more essay writing!)
+- **📊 Customizable Outputs:** Choose exactly what you want generated
+- **🎨 Multiple Diagram Types:** Sequence, architecture, database, deployment diagrams
 - **📋 Production Ready:** Outputs you can actually use in real projects
-- **🎨 Copy-Paste Friendly:** Mermaid diagrams ready for mermaid.live
+- **🎨 Copy-Paste Friendly:** All Mermaid diagrams ready for mermaid.live
 - **🚀 Modern Stack:** FastAPI + React + OpenAI + aimakerspace
 - **💫 Beautiful UI:** Because ugly interfaces are a crime against humanity
 
