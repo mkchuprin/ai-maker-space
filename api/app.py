@@ -159,7 +159,7 @@ async def startup_event():
 # Root endpoint for testing
 @app.get("/")
 async def root():
-    return {"message": "AI Maker Space System Design Interview API is running!"}
+    return {"message": "AI Maker Space Architecture Studio API is running!"}
 
 # PDF Upload endpoint
 @app.post("/api/upload-pdf", response_model=PDFUploadResponse)
@@ -383,51 +383,51 @@ async def generate_interview_question(session_id: str, requirements: str, previo
         relevant_chunks = system_design_knowledge.search_by_text(search_query, k=3, return_as_text=True)
         context = "\n".join(relevant_chunks)
     
-    # Question templates with multiple choice options for easier answering
+    # Short, snappy question templates
     question_templates = [
         {
-            "question": "Let's start with scale estimation. What's your expected user base and traffic for this system?",
+            "question": "How many users?",
             "options": [
-                "A) Small scale: <10K users, <100 requests/sec",
-                "B) Medium scale: 10K-1M users, 100-10K requests/sec", 
-                "C) Large scale: 1M-100M users, 10K-100K requests/sec",
-                "D) Massive scale: >100M users, >100K requests/sec"
+                "A) Small (< 10K users)",
+                "B) Medium (10K - 1M users)", 
+                "C) Large (1M - 100M users)",
+                "D) Massive (> 100M users)"
             ]
         },
         {
-            "question": "What's your preferred high-level architecture pattern for this system?",
+            "question": "Architecture style?",
             "options": [
-                "A) Monolithic architecture with single database",
-                "B) Microservices with API gateway and service mesh",
-                "C) Serverless functions with managed services",
-                "D) Hybrid approach mixing monolith and microservices"
+                "A) Monolith",
+                "B) Microservices",
+                "C) Serverless",
+                "D) Hybrid"
             ]
         },
         {
-            "question": "Which database strategy would you choose for the core data storage?",
+            "question": "Database choice?",
             "options": [
-                "A) Single SQL database (PostgreSQL/MySQL) with read replicas",
-                "B) NoSQL database (MongoDB/DynamoDB) for flexibility",
-                "C) Multi-database approach (SQL + NoSQL + Cache)",
-                "D) Distributed database system (Cassandra/CockroachDB)"
+                "A) SQL (PostgreSQL, MySQL)",
+                "B) NoSQL (MongoDB, DynamoDB)",
+                "C) Both SQL + NoSQL",
+                "D) Distributed (Cassandra)"
             ]
         },
         {
-            "question": "How would you handle scaling and performance optimization?",
+            "question": "Scaling strategy?",
             "options": [
-                "A) Vertical scaling with powerful servers and caching",
-                "B) Horizontal scaling with load balancers and CDN",
-                "C) Auto-scaling with cloud services and containers",
-                "D) Global distribution with multiple data centers"
+                "A) Bigger servers",
+                "B) More servers + load balancer",
+                "C) Auto-scaling cloud",
+                "D) Global distribution"
             ]
         },
         {
-            "question": "What's your approach to reliability and fault tolerance?",
+            "question": "Reliability approach?",
             "options": [
-                "A) Basic monitoring with backup systems and alerts",
-                "B) Circuit breakers, retries, and graceful degradation",
-                "C) Multi-region deployment with disaster recovery",
-                "D) Chaos engineering and self-healing systems"
+                "A) Basic monitoring + backups",
+                "B) Circuit breakers + retries",
+                "C) Multi-region deployment",
+                "D) Chaos engineering"
             ]
         }
     ]

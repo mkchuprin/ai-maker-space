@@ -374,7 +374,7 @@ function App() {
         });
 
         // Build completion message with download instructions
-        let completionContent = '🎉 Interview Complete! Your outputs are ready for download.\n\n';
+        let completionContent = '🎉 Design Complete! Your architecture files are ready for download.\n\n';
         completionContent += '📁 **Available Downloads:**\n';
         
         if (result.sequence_diagram) {
@@ -436,7 +436,7 @@ function App() {
     // Handle interview mode
     if (chatMode === 'interview') {
       if (!interviewStarted) {
-        alert('Please start the interview first');
+        alert('Please start the architecture designer first');
         return;
       }
       
@@ -578,8 +578,8 @@ function App() {
       <div className="chat-container">
         <header className="chat-header">
           <div className="header-content">
-            <h1>🤖 SnackChat</h1>
-            <p>AI Maker Space - Chat with AI models powered by OpenAI</p>
+            <h1>🏗️ Architecture Studio</h1>
+            <p>Design systems like a pro with AI guidance</p>
           </div>
         </header>
 
@@ -619,7 +619,7 @@ function App() {
               onChange={(e) => setChatMode(e.target.value as 'general' | 'pdf' | 'interview')}
               className="model-select"
             >
-              <option value="interview">System Design Interview</option>
+                  <option value="interview">Architecture Designer</option>
               <option value="general">General Chat</option>
               <option value="pdf">PDF RAG Chat</option>
             </select>
@@ -720,7 +720,7 @@ function App() {
                 disabled={!apiKey.trim() || !systemRequirements.trim() || isLoading}
                 className="interview-start-button"
               >
-                {isLoading ? '⏳ Starting Interview...' : '🎯 Start System Design Interview'}
+                {isLoading ? '⏳ Starting Designer...' : '🎯 Start Architecture Design'}
               </button>
             </div>
           )}
@@ -862,7 +862,7 @@ function App() {
                 {chatMode === 'pdf' 
                   ? 'Upload a PDF to get started!' 
                   : chatMode === 'interview' 
-                    ? 'System Design Interview' 
+                    ? 'Architecture Designer' 
                     : 'Start a conversation!'
                 }
               </h3>
@@ -870,7 +870,7 @@ function App() {
                 {chatMode === 'pdf' 
                   ? 'Upload a PDF document and ask questions about its content using AI-powered RAG.'
                   : chatMode === 'interview'
-                    ? 'Enter the system you want to design and start your technical interview. The AI will guide you through 5 questions and generate a complete system design with Mermaid diagrams.'
+                    ? 'Enter the system you want to design and let AI guide you through 5 quick questions. Get professional diagrams and documentation instantly.'
                     : 'Enter your message below to begin chatting with the AI.'
                 }
               </p>
@@ -923,7 +923,7 @@ function App() {
                 chatMode === 'pdf' 
                   ? (selectedPDF ? "Ask a question about your PDF..." : "Upload a PDF first...")
                   : chatMode === 'interview'
-                    ? (interviewStarted ? "Enter your answer to the interview question..." : "Start the interview first...")
+                    ? (interviewStarted ? "Choose your answer (A, B, C, or D)..." : "Start the designer first...")
                     : "Type your message here..."
               }
               disabled={

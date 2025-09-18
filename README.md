@@ -98,9 +98,13 @@ npm start
    - 📋 Complete System Design Document
 6. **Click "🎯 Start System Design Interview"**
 7. **Answer 5 multiple choice questions** (A, B, C, or D - super easy!)
-8. **Get mind-blowing results** based on your selections:
-   - Multiple Mermaid diagrams ready for mermaid.live
-   - Production-ready documentation
+8. **Get mind-blowing results** as downloadable files:
+   - 📊 **Sequence.mmd** - Ready to open in mermaid.live
+   - 🏗️ **Architecture.mmd** - Ready to open in mermaid.live  
+   - 🗄️ **Database.mmd** - Ready to open in mermaid.live
+   - 🚀 **Deployment.mmd** - Ready to open in mermaid.live
+   - 🔌 **API.md** - Markdown documentation
+   - 📋 **SystemDesign.md** - Complete markdown documentation
    - The satisfaction of a job well done
 
 ## 🎨 Sample Mermaid Output (Ready for mermaid.live!)
@@ -201,8 +205,9 @@ npm start
 - **🎯 Multiple Choice:** Easy A/B/C/D format questions (no more essay writing!)
 - **📊 Customizable Outputs:** Choose exactly what you want generated
 - **🎨 Multiple Diagram Types:** Sequence, architecture, database, deployment diagrams
+- **📁 Downloadable Files:** Get .mmd files for mermaid.live and .md files for documentation
 - **📋 Production Ready:** Outputs you can actually use in real projects
-- **🎨 Copy-Paste Friendly:** All Mermaid diagrams ready for mermaid.live
+- **🎨 Direct Integration:** .mmd files open directly in mermaid.live
 - **🚀 Modern Stack:** FastAPI + React + OpenAI + aimakerspace
 - **💫 Beautiful UI:** Because ugly interfaces are a crime against humanity
 
