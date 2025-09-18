@@ -47,13 +47,9 @@ function App() {
   // Interview state
   const [interviewSession, setInterviewSession] = useState<string>('');
   const [systemRequirements, setSystemRequirements] = useState('');
-  const [currentQuestion, setCurrentQuestion] = useState<string>('');
   const [interviewProgress, setInterviewProgress] = useState<number>(0);
   const [isInterviewComplete, setIsInterviewComplete] = useState<boolean>(false);
-  const [mermaidDiagram, setMermaidDiagram] = useState<string>('');
-  const [systemDesign, setSystemDesign] = useState<string>('');
   const [interviewStarted, setInterviewStarted] = useState<boolean>(false);
-  const [selectedOption, setSelectedOption] = useState<string>('');
   // Output preferences
   const [outputPreferences, setOutputPreferences] = useState({
     sequenceDiagram: true,
@@ -360,8 +356,6 @@ function App() {
 
       if (result.is_complete) {
         setIsInterviewComplete(true);
-        setMermaidDiagram(result.sequence_diagram || '');
-        setSystemDesign(result.system_design || '');
 
         // Store all generated outputs for downloading
         setGeneratedOutputs({
@@ -405,7 +399,6 @@ function App() {
         };
         setMessages(prev => [...prev, completionMessage]);
       } else {
-        setCurrentQuestion(result.question || '');
 
         // Add next question to messages
         const questionMessage: Message = {
