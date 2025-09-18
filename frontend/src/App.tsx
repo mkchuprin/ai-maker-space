@@ -170,7 +170,7 @@ function App() {
         },
         body: JSON.stringify({
           session_id: sessionId,
-          requirements: systemRequirements,
+          system_requirements: systemRequirements,
           api_key: apiKey,
           model: model,
           output_preferences: outputPreferences
