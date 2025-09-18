@@ -867,11 +867,13 @@ function App() {
                 }
               </h3>
               <p>
-                {chatMode === 'pdf' 
-                  ? 'Upload a PDF document and ask questions about its content using AI-powered RAG.'
-                  : chatMode === 'interview'
-                    ? 'Enter the system you want to design and let AI guide you through 5 quick questions. Get professional diagrams and documentation instantly.'
-                    : 'Enter your message below to begin chatting with the AI.'
+                {!apiKey.trim() 
+                  ? '🔑 Please enter your OpenAI API key above to get started.'
+                  : chatMode === 'pdf'
+                    ? 'Upload a PDF document and ask questions about its content using AI-powered RAG.'
+                    : chatMode === 'interview'
+                      ? 'Enter the system you want to design and let AI guide you through 5 quick questions. Get professional diagrams and documentation instantly.'
+                      : 'Enter your message below to begin chatting with the AI.'
                 }
               </p>
             </div>
@@ -896,7 +898,7 @@ function App() {
             </div>
           ))}
           
-          {isLoading && (
+          {isLoading && apiKey.trim() && (
             <div className="message assistant-message">
               <div className="message-content">
                 <div className="message-role">🤖 AI</div>
