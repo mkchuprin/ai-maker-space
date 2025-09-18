@@ -912,40 +912,40 @@ function App() {
             </div>
 
             <form onSubmit={handleSubmit} className="input-form">
-          <div className="input-container">
-            <input
-              type="text"
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              placeholder={
-                chatMode === 'pdf' 
-                  ? (selectedPDF ? "Ask a question about your PDF..." : "Upload a PDF first...")
-                  : chatMode === 'interview'
-                    ? (interviewStarted ? "Choose your answer (A, B, C, or D)..." : "Start the designer first...")
-                    : "Type your message here..."
-              }
-              disabled={
-                isLoading || 
-                !apiKey.trim() || 
-                (chatMode === 'pdf' && !selectedPDF) ||
-                (chatMode === 'interview' && !interviewStarted)
-              }
-              className="message-input"
-            />
-            <button
-              type="submit"
-              disabled={
-                isLoading || 
-                !inputMessage.trim() || 
-                !apiKey.trim() || 
-                (chatMode === 'pdf' && !selectedPDF) ||
-                (chatMode === 'interview' && !interviewStarted)
-              }
-              className="send-button"
-            >
-              {isLoading ? '⏳' : '📤'}
-            </button>
-          </div>
+              <div className="input-container">
+                <input
+                  type="text"
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  placeholder={
+                    chatMode === 'pdf'
+                      ? (uploadedPDFs.length === 0 ? "Upload a PDF first..." : selectedPDF ? "Ask about the PDF..." : "Select a PDF first...")
+                      : chatMode === 'interview'
+                        ? (interviewStarted ? "Choose your answer (A, B, C, or D)..." : "Start the designer first...")
+                        : "Type your message..."
+                  }
+                  disabled={
+                    isLoading || 
+                    !apiKey.trim() || 
+                    (chatMode === 'pdf' && !selectedPDF) ||
+                    (chatMode === 'interview' && !interviewStarted)
+                  }
+                  className="message-input"
+                />
+                <button
+                  type="submit"
+                  disabled={
+                    isLoading || 
+                    !inputMessage.trim() || 
+                    !apiKey.trim() || 
+                    (chatMode === 'pdf' && !selectedPDF) ||
+                    (chatMode === 'interview' && !interviewStarted)
+                  }
+                  className="send-button"
+                >
+                  {isLoading ? '⏳' : '📤'}
+                </button>
+              </div>
             </form>
 
             <div className="chat-actions">
