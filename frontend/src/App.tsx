@@ -7,22 +7,9 @@ interface Message {
   timestamp: Date;
 }
 
-interface UploadedPDF {
-  pdf_id: string;
-  filename: string;
-  chunk_count: number;
-}
-
-interface PDFUploadResponse {
-  pdf_id: string;
-  filename: string;
-  message: string;
-  chunk_count: number;
-}
-
 interface InterviewResponse {
-  session_id: string;
   question?: string;
+  progress: number;
   is_complete: boolean;
   sequence_diagram?: string;
   high_level_design?: string;
@@ -30,26 +17,31 @@ interface InterviewResponse {
   api_design?: string;
   deployment_diagram?: string;
   system_design?: string;
-  progress: number;
 }
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const [apiKey, setApiKey] = useState('');
+  const [model, setModel] = useState('gpt-4o');
   const [developerMessage, setDeveloperMessage] = useState('You are a helpful AI assistant.');
-  const [model, setModel] = useState('gpt-4.1-mini');
-  const [uploadedPDFs, setUploadedPDFs] = useState<UploadedPDF[]>([]);
-  const [selectedPDF, setSelectedPDF] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // PDF state
+  const [uploadedPDFs, setUploadedPDFs] = useState<any[]>([]);
+  const [selectedPDF, setSelectedPDF] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  
+  // Chat mode
   const [chatMode, setChatMode] = useState<'general' | 'pdf' | 'interview'>('interview');
+  
   // Interview state
   const [interviewSession, setInterviewSession] = useState<string>('');
   const [systemRequirements, setSystemRequirements] = useState('');
   const [interviewProgress, setInterviewProgress] = useState<number>(0);
   const [isInterviewComplete, setIsInterviewComplete] = useState<boolean>(false);
   const [interviewStarted, setInterviewStarted] = useState<boolean>(false);
+  
   // Output preferences
   const [outputPreferences, setOutputPreferences] = useState({
     sequenceDiagram: true,
@@ -59,7 +51,8 @@ function App() {
     deploymentDiagram: false,
     systemDesignDoc: true
   });
-  // Store all generated outputs for downloading
+  
+  // Store generated outputs for downloading
   const [generatedOutputs, setGeneratedOutputs] = useState<{
     sequence_diagram?: string;
     high_level_design?: string;
@@ -70,7 +63,6 @@ function App() {
   }>({});
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const assistantMessageRef = useRef<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
@@ -80,79 +72,6 @@ function App() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-  // Load uploaded PDFs on component mount
-  useEffect(() => {
-    loadUploadedPDFs();
-  }, []);
-
-  const loadUploadedPDFs = async () => {
-    try {
-      const response = await fetch('/api/pdfs');
-      if (response.ok) {
-        const data = await response.json();
-        setUploadedPDFs(data.pdfs);
-      }
-    } catch (error) {
-      console.error('Error loading PDFs:', error);
-    }
-  };
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !apiKey.trim()) return;
-
-    setIsUploading(true);
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('api_key', apiKey);
-
-    try {
-      const response = await fetch('/api/upload-pdf', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result: PDFUploadResponse = await response.json();
-      
-      // Add to uploaded PDFs list
-      const newPDF: UploadedPDF = {
-        pdf_id: result.pdf_id,
-        filename: result.filename,
-        chunk_count: result.chunk_count
-      };
-      
-      setUploadedPDFs(prev => [...prev, newPDF]);
-      setSelectedPDF(result.pdf_id);
-      setChatMode('pdf');
-      
-      // Add success message to chat
-      const successMessage: Message = {
-        role: 'assistant',
-        content: `📄 PDF "${result.filename}" uploaded successfully! Created ${result.chunk_count} text chunks. You can now ask questions about this document.`,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, successMessage]);
-
-    } catch (error) {
-      console.error('Error uploading PDF:', error);
-      const errorMessage: Message = {
-        role: 'assistant',
-        content: `❌ Error uploading PDF: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
 
   const handleOutputPreferenceChange = (preference: string) => {
     setOutputPreferences(prev => ({
@@ -174,61 +93,11 @@ function App() {
   };
 
   const downloadMermaidFile = (content: string, filename: string) => {
-    // For Mermaid files, we want plain text with .mmd extension for mermaid.live
     downloadFile(content, `${filename}.mmd`, 'text/plain');
   };
 
   const downloadMarkdownFile = (content: string, filename: string) => {
     downloadFile(content, `${filename}.md`, 'text/markdown');
-  };
-
-  const downloadAllOutputs = () => {
-    const systemName = systemRequirements.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-    const timestamp = new Date().toISOString().split('T')[0];
-    
-    Object.entries(generatedOutputs).forEach(([key, content]) => {
-      if (!content) return;
-      
-      let filename: string;
-      let isMermaid = false;
-      
-      switch (key) {
-        case 'sequence_diagram':
-          filename = `${systemName}_sequence_diagram_${timestamp}`;
-          isMermaid = true;
-          break;
-        case 'high_level_design':
-          filename = `${systemName}_architecture_diagram_${timestamp}`;
-          isMermaid = true;
-          break;
-        case 'database_schema':
-          filename = `${systemName}_database_schema_${timestamp}`;
-          isMermaid = true;
-          break;
-        case 'deployment_diagram':
-          filename = `${systemName}_deployment_diagram_${timestamp}`;
-          isMermaid = true;
-          break;
-        case 'api_design':
-          filename = `${systemName}_api_design_${timestamp}`;
-          break;
-        case 'system_design':
-          filename = `${systemName}_system_design_${timestamp}`;
-          break;
-        default:
-          filename = `${systemName}_${key}_${timestamp}`;
-      }
-      
-      if (isMermaid) {
-        downloadMermaidFile(content, filename);
-      } else {
-        // Wrap non-mermaid content in markdown format
-        const markdownContent = key === 'system_design' 
-          ? content 
-          : `# ${filename.replace(/_/g, ' ').toUpperCase()}\n\n${content}`;
-        downloadMarkdownFile(markdownContent, filename);
-      }
-    });
   };
 
   const downloadSingleOutput = (key: string, content: string) => {
@@ -275,6 +144,14 @@ function App() {
     }
   };
 
+  const downloadAllOutputs = () => {
+    Object.entries(generatedOutputs).forEach(([key, content]) => {
+      if (content) {
+        downloadSingleOutput(key, content);
+      }
+    });
+  };
+
   const startInterview = async () => {
     if (!systemRequirements.trim() || !apiKey.trim()) {
       alert('Please enter system requirements and API key');
@@ -293,8 +170,9 @@ function App() {
         },
         body: JSON.stringify({
           session_id: sessionId,
-          system_requirements: systemRequirements,
+          requirements: systemRequirements,
           api_key: apiKey,
+          model: model,
           output_preferences: outputPreferences
         }),
       });
@@ -304,14 +182,12 @@ function App() {
       }
 
       const result: InterviewResponse = await response.json();
-      setCurrentQuestion(result.question || '');
       setInterviewProgress(result.progress);
       setInterviewStarted(true);
 
-      // Add first question to messages
       const questionMessage: Message = {
         role: 'assistant',
-        content: result.question || '',
+        content: result.question || 'Let\'s start the interview!',
         timestamp: new Date()
       };
       setMessages([questionMessage]);
@@ -342,8 +218,9 @@ function App() {
         },
         body: JSON.stringify({
           session_id: interviewSession,
-          user_answer: answer,
-          api_key: apiKey
+          answer: answer,
+          api_key: apiKey,
+          model: model
         }),
       });
 
@@ -399,7 +276,6 @@ function App() {
         };
         setMessages(prev => [...prev, completionMessage]);
       } else {
-
         // Add next question to messages
         const questionMessage: Message = {
           role: 'assistant',
@@ -408,7 +284,6 @@ function App() {
         };
         setMessages(prev => [...prev, questionMessage]);
       }
-
     } catch (error) {
       console.error('Error submitting answer:', error);
       const errorMessage: Message = {
@@ -432,82 +307,54 @@ function App() {
         alert('Please start the architecture designer first');
         return;
       }
-      
+
       const userMessage = inputMessage.trim();
       setInputMessage('');
       
-      // Add user message to chat
-      const newUserMessage: Message = {
+      const userMsg: Message = {
         role: 'user',
         content: userMessage,
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, newUserMessage]);
-      
+      setMessages(prev => [...prev, userMsg]);
+
       // Submit answer to interview system
       await submitInterviewAnswer(userMessage);
       return;
     }
 
-    // Check if PDF mode is selected but no PDF is chosen
-    if (chatMode === 'pdf' && !selectedPDF) {
-      const errorMessage: Message = {
-        role: 'assistant',
-        content: 'Please upload a PDF first or switch to general chat mode.',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
-      return;
-    }
-
+    // Handle other chat modes (general, pdf)
     const userMessage = inputMessage.trim();
     setInputMessage('');
     
-    // Add user message to chat
-    const newUserMessage: Message = {
+    const userMsg: Message = {
       role: 'user',
       content: userMessage,
       timestamp: new Date()
     };
-    setMessages(prev => [...prev, newUserMessage]);
+    setMessages(prev => [...prev, userMsg]);
     setIsLoading(true);
 
     try {
-      let apiUrl: string;
-      let requestBody: any;
-      
-      if (chatMode === 'pdf') {
-        // PDF RAG chat
-        apiUrl = '/api/pdf-chat';
-        requestBody = {
-          user_message: userMessage,
-          pdf_id: selectedPDF,
-          model: model,
-          api_key: apiKey
-        };
-      } else {
-        // General chat
-        apiUrl = '/api/chat';
-        requestBody = {
-          developer_message: developerMessage,
-          user_message: userMessage,
-          model: model,
-          api_key: apiKey
-        };
-      }
-      
-      console.log('Sending request with:', {
-        ...requestBody,
-        api_key: apiKey ? `${apiKey.substring(0, 10)}...` : 'empty'
-      });
-        
-      const response = await fetch(apiUrl, {
+      const endpoint = chatMode === 'pdf' ? '/api/pdf-chat' : '/api/chat';
+      const requestBody = chatMode === 'pdf' 
+        ? {
+            message: userMessage,
+            pdf_id: selectedPDF,
+            api_key: apiKey,
+            model: model
+          }
+        : {
+            message: userMessage,
+            developer_message: developerMessage,
+            api_key: apiKey,
+            model: model
+          };
+
+      const response = await fetch(endpoint, {
         method: 'POST',
-        mode: 'cors',
-        credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'text/plain',
         },
         body: JSON.stringify(requestBody),
       });
@@ -516,44 +363,23 @@ function App() {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No response body');
-
-      // Reset the assistant message ref
-      assistantMessageRef.current = '';
+      const data = await response.json();
       
-      const newAssistantMessage: Message = {
+      const assistantMsg: Message = {
         role: 'assistant',
-        content: '',
+        content: data.response,
         timestamp: new Date()
       };
-      
-      setMessages(prev => [...prev, newAssistantMessage]);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = new TextDecoder().decode(value);
-        assistantMessageRef.current += chunk;
-        
-        setMessages(prev => 
-          prev.map((msg, index) => 
-            index === prev.length - 1 && msg.role === 'assistant'
-              ? { ...msg, content: assistantMessageRef.current }
-              : msg
-          )
-        );
-      }
+      setMessages(prev => [...prev, assistantMsg]);
 
     } catch (error) {
       console.error('Error:', error);
-      const errorMessage: Message = {
+      const errorMsg: Message = {
         role: 'assistant',
-        content: `Error: ${error instanceof Error ? error.message : 'An unknown error occurred'}`,
+        content: `Error: ${error instanceof Error ? error.message : 'Something went wrong'}`,
         timestamp: new Date()
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => [...prev, errorMsg]);
     } finally {
       setIsLoading(false);
     }
@@ -563,9 +389,45 @@ function App() {
     setMessages([]);
   };
 
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !apiKey.trim()) return;
+
+    setIsUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('api_key', apiKey);
+
+    try {
+      const response = await fetch('/api/upload-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      setUploadedPDFs(prev => [...prev, result]);
+      setSelectedPDF(result.id);
+
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Error uploading PDF:', error);
+      alert(`Error uploading PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   return (
     <div className="App">
-      {/* SnackChat Background Logo */}
       <div className="slapchat-logo">SnackChat</div>
       
       <div className="chat-container">
@@ -578,276 +440,272 @@ function App() {
 
         <div className="main-content">
           <div className="sidebar">
-          <div className="setting-group">
-            <label htmlFor="apiKey">OpenAI API Key:</label>
-            <input
-              id="apiKey"
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Enter your OpenAI API key"
-              className="api-key-input"
-            />
-          </div>
-          
-          <div className="setting-group">
-            <label htmlFor="model">Model:</label>
-            <select
-              id="model"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="model-select"
-            >
-              <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
-              <option value="gpt-4o">GPT-4o</option>
-              <option value="gpt-4o-mini">GPT-4o Mini</option>
-              <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-            </select>
-          </div>
-
-          <div className="setting-group">
-            <label htmlFor="chatMode">Mode:</label>
-            <select
-              id="chatMode"
-              value={chatMode}
-              onChange={(e) => setChatMode(e.target.value as 'general' | 'pdf' | 'interview')}
-              className="model-select"
-            >
-                  <option value="interview">Architecture Designer</option>
-              <option value="general">General Chat</option>
-              <option value="pdf">PDF RAG Chat</option>
-            </select>
-          </div>
-
-          {chatMode === 'general' && (
             <div className="setting-group">
-              <label htmlFor="developerMessage">System Message:</label>
-              <textarea
-                id="developerMessage"
-                value={developerMessage}
-                onChange={(e) => setDeveloperMessage(e.target.value)}
-                placeholder="Define the AI's role and behavior"
-                className="developer-message-input"
-                rows={3}
+              <label htmlFor="apiKey">OpenAI API Key:</label>
+              <input
+                id="apiKey"
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Enter your OpenAI API key"
+                className="api-key-input"
               />
             </div>
-          )}
-
-          {chatMode === 'interview' && (
+            
             <div className="setting-group">
-              <label htmlFor="systemRequirements">System to Design:</label>
-              <textarea
-                id="systemRequirements"
-                value={systemRequirements}
-                onChange={(e) => setSystemRequirements(e.target.value)}
-                placeholder="e.g., Design a chat application like WhatsApp"
-                className="developer-message-input"
-                rows={2}
-                disabled={interviewStarted}
-              />
-            </div>
-          )}
-
-          {chatMode === 'interview' && !interviewStarted && (
-            <div className="setting-group">
-              <label>What outputs do you want? (Select all that apply):</label>
-              <div className="output-preferences">
-                <div className="checkbox-group">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={outputPreferences.sequenceDiagram}
-                      onChange={() => handleOutputPreferenceChange('sequenceDiagram')}
-                    />
-                    📊 Sequence Diagram (Mermaid)
-                  </label>
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={outputPreferences.highLevelDesign}
-                      onChange={() => handleOutputPreferenceChange('highLevelDesign')}
-                    />
-                    🏗️ High-Level Architecture Diagram
-                  </label>
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={outputPreferences.databaseSchema}
-                      onChange={() => handleOutputPreferenceChange('databaseSchema')}
-                    />
-                    🗄️ Database Schema Diagram
-                  </label>
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={outputPreferences.apiDesign}
-                      onChange={() => handleOutputPreferenceChange('apiDesign')}
-                    />
-                    🔌 API Design & Endpoints
-                  </label>
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={outputPreferences.deploymentDiagram}
-                      onChange={() => handleOutputPreferenceChange('deploymentDiagram')}
-                    />
-                    🚀 Deployment Architecture
-                  </label>
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={outputPreferences.systemDesignDoc}
-                      onChange={() => handleOutputPreferenceChange('systemDesignDoc')}
-                    />
-                    📋 Complete System Design Document
-                  </label>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {chatMode === 'interview' && !interviewStarted && (
-            <div className="setting-group">
-              <button
-                type="button"
-                onClick={startInterview}
-                disabled={!apiKey.trim() || !systemRequirements.trim() || isLoading}
-                className="interview-start-button"
-              >
-                {isLoading ? '⏳ Starting Designer...' : '🎯 Start Architecture Design'}
-              </button>
-            </div>
-          )}
-
-          {chatMode === 'interview' && interviewStarted && (
-            <div className="setting-group">
-              <div className="interview-progress">
-                <label>Progress: {interviewProgress}%</label>
-                <div className="progress-bar">
-                  <div 
-                    className="progress-fill" 
-                    style={{ width: `${interviewProgress}%` }}
-                  ></div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {chatMode === 'pdf' && (
-            <div className="setting-group">
-              <label htmlFor="pdfUpload">Upload PDF:</label>
-              <div className="pdf-upload-container">
-                <input
-                  ref={fileInputRef}
-                  id="pdfUpload"
-                  type="file"
-                  accept=".pdf"
-                  onChange={handleFileUpload}
-                  className="pdf-file-input"
-                  disabled={!apiKey.trim() || isUploading}
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={!apiKey.trim() || isUploading}
-                  className="pdf-upload-button"
-                >
-                  {isUploading ? '⏳ Uploading...' : '📄 Upload PDF'}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {chatMode === 'pdf' && uploadedPDFs.length > 0 && (
-            <div className="setting-group">
-              <label htmlFor="selectedPDF">Select PDF:</label>
+              <label htmlFor="model">Model:</label>
               <select
-                id="selectedPDF"
-                value={selectedPDF}
-                onChange={(e) => setSelectedPDF(e.target.value)}
+                id="model"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
                 className="model-select"
               >
-                <option value="">Choose a PDF...</option>
-                {uploadedPDFs.map((pdf) => (
-                  <option key={pdf.pdf_id} value={pdf.pdf_id}>
-                    {pdf.filename} ({pdf.chunk_count} chunks)
-                  </option>
-                ))}
+                <option value="gpt-4o">GPT-4o</option>
+                <option value="gpt-4o-mini">GPT-4o Mini</option>
+                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
               </select>
             </div>
-          )}
-        </div>
 
-        {/* Download Section - Show after interview completion */}
-        {chatMode === 'interview' && isInterviewComplete && Object.keys(generatedOutputs).some(key => generatedOutputs[key as keyof typeof generatedOutputs]) && (
-          <div className="download-section">
-            <h3>📁 Download Your Files</h3>
-            <div className="download-buttons">
-              <button
-                onClick={downloadAllOutputs}
-                className="download-all-button"
+            <div className="setting-group">
+              <label htmlFor="chatMode">Mode:</label>
+              <select
+                id="chatMode"
+                value={chatMode}
+                onChange={(e) => setChatMode(e.target.value as 'general' | 'pdf' | 'interview')}
+                className="model-select"
               >
-                📦 Download All Files
-              </button>
-              <div className="individual-downloads">
-                {generatedOutputs.sequence_diagram && (
-                  <button
-                    onClick={() => downloadSingleOutput('sequence_diagram', generatedOutputs.sequence_diagram!)}
-                    className="download-single-button"
-                  >
-                    📊 Sequence.mmd
-                  </button>
-                )}
-                {generatedOutputs.high_level_design && (
-                  <button
-                    onClick={() => downloadSingleOutput('high_level_design', generatedOutputs.high_level_design!)}
-                    className="download-single-button"
-                  >
-                    🏗️ Architecture.mmd
-                  </button>
-                )}
-                {generatedOutputs.database_schema && (
-                  <button
-                    onClick={() => downloadSingleOutput('database_schema', generatedOutputs.database_schema!)}
-                    className="download-single-button"
-                  >
-                    🗄️ Database.mmd
-                  </button>
-                )}
-                {generatedOutputs.api_design && (
-                  <button
-                    onClick={() => downloadSingleOutput('api_design', generatedOutputs.api_design!)}
-                    className="download-single-button"
-                  >
-                    🔌 API.md
-                  </button>
-                )}
-                {generatedOutputs.deployment_diagram && (
-                  <button
-                    onClick={() => downloadSingleOutput('deployment_diagram', generatedOutputs.deployment_diagram!)}
-                    className="download-single-button"
-                  >
-                    🚀 Deployment.mmd
-                  </button>
-                )}
-                {generatedOutputs.system_design && (
-                  <button
-                    onClick={() => downloadSingleOutput('system_design', generatedOutputs.system_design!)}
-                    className="download-single-button"
-                  >
-                    📋 SystemDesign.md
-                  </button>
-                )}
-              </div>
+                <option value="interview">Architecture Designer</option>
+                <option value="general">General Chat</option>
+                <option value="pdf">PDF RAG Chat</option>
+              </select>
             </div>
-            <p className="download-tip">
-              💡 <strong>Tip:</strong> .mmd files open directly in mermaid.live, .md files work with any markdown editor!
-            </p>
-          </div>
-        )}
+
+            {chatMode === 'general' && (
+              <div className="setting-group">
+                <label htmlFor="developerMessage">System Message:</label>
+                <textarea
+                  id="developerMessage"
+                  value={developerMessage}
+                  onChange={(e) => setDeveloperMessage(e.target.value)}
+                  placeholder="Define the AI's role and behavior"
+                  className="developer-message-input"
+                  rows={3}
+                />
+              </div>
+            )}
+
+            {chatMode === 'interview' && (
+              <>
+                <div className="setting-group">
+                  <label htmlFor="systemRequirements">System to Design:</label>
+                  <textarea
+                    id="systemRequirements"
+                    value={systemRequirements}
+                    onChange={(e) => setSystemRequirements(e.target.value)}
+                    placeholder="e.g., Design a chat application like WhatsApp"
+                    className="developer-message-input"
+                    rows={2}
+                    disabled={interviewStarted}
+                  />
+                </div>
+
+                {!interviewStarted && (
+                  <div className="setting-group">
+                    <label>What outputs do you want?</label>
+                    <div className="output-preferences">
+                      <div className="checkbox-group">
+                        <label className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={outputPreferences.sequenceDiagram}
+                            onChange={() => handleOutputPreferenceChange('sequenceDiagram')}
+                          />
+                          📊 Sequence Diagram
+                        </label>
+                        <label className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={outputPreferences.highLevelDesign}
+                            onChange={() => handleOutputPreferenceChange('highLevelDesign')}
+                          />
+                          🏗️ Architecture Diagram
+                        </label>
+                        <label className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={outputPreferences.databaseSchema}
+                            onChange={() => handleOutputPreferenceChange('databaseSchema')}
+                          />
+                          🗄️ Database Schema
+                        </label>
+                        <label className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={outputPreferences.apiDesign}
+                            onChange={() => handleOutputPreferenceChange('apiDesign')}
+                          />
+                          🔌 API Design
+                        </label>
+                        <label className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={outputPreferences.deploymentDiagram}
+                            onChange={() => handleOutputPreferenceChange('deploymentDiagram')}
+                          />
+                          🚀 Deployment Architecture
+                        </label>
+                        <label className="checkbox-label">
+                          <input
+                            type="checkbox"
+                            checked={outputPreferences.systemDesignDoc}
+                            onChange={() => handleOutputPreferenceChange('systemDesignDoc')}
+                          />
+                          📋 System Design Document
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {!interviewStarted && (
+                  <button
+                    onClick={startInterview}
+                    disabled={!apiKey.trim() || !systemRequirements.trim() || isLoading}
+                    className="interview-start-button"
+                  >
+                    {isLoading ? '⏳ Starting Designer...' : '🎯 Start Architecture Design'}
+                  </button>
+                )}
+
+                {interviewStarted && (
+                  <div className="interview-progress">
+                    <label>Progress: {interviewProgress}%</label>
+                    <div className="progress-bar">
+                      <div 
+                        className="progress-fill" 
+                        style={{ width: `${interviewProgress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {chatMode === 'pdf' && (
+              <>
+                <div className="setting-group">
+                  <label>Upload PDF:</label>
+                  <div className="pdf-upload-container">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf"
+                      onChange={handleFileUpload}
+                      className="pdf-file-input"
+                      disabled={!apiKey.trim() || isUploading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={!apiKey.trim() || isUploading}
+                      className="pdf-upload-button"
+                    >
+                      {isUploading ? '⏳ Uploading...' : '📄 Upload PDF'}
+                    </button>
+                  </div>
+                </div>
+
+                {uploadedPDFs.length > 0 && (
+                  <div className="setting-group">
+                    <label htmlFor="selectedPDF">Select PDF:</label>
+                    <select
+                      id="selectedPDF"
+                      value={selectedPDF}
+                      onChange={(e) => setSelectedPDF(e.target.value)}
+                      className="model-select"
+                    >
+                      <option value="">Select a PDF...</option>
+                      {uploadedPDFs.map((pdf) => (
+                        <option key={pdf.id} value={pdf.id}>
+                          {pdf.filename}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </>
+            )}
           </div>
 
           <div className="chat-section">
+            {/* Download Section - Show after interview completion */}
+            {chatMode === 'interview' && isInterviewComplete && Object.keys(generatedOutputs).some(key => generatedOutputs[key as keyof typeof generatedOutputs]) && (
+              <div className="download-section">
+                <h3>📁 Download Your Files</h3>
+                <div className="download-buttons">
+                  <button
+                    onClick={downloadAllOutputs}
+                    className="download-all-button"
+                  >
+                    📦 Download All Files
+                  </button>
+                  <div className="individual-downloads">
+                    {generatedOutputs.sequence_diagram && (
+                      <button
+                        onClick={() => downloadSingleOutput('sequence_diagram', generatedOutputs.sequence_diagram!)}
+                        className="download-single-button"
+                      >
+                        📊 Sequence.mmd
+                      </button>
+                    )}
+                    {generatedOutputs.high_level_design && (
+                      <button
+                        onClick={() => downloadSingleOutput('high_level_design', generatedOutputs.high_level_design!)}
+                        className="download-single-button"
+                      >
+                        🏗️ Architecture.mmd
+                      </button>
+                    )}
+                    {generatedOutputs.database_schema && (
+                      <button
+                        onClick={() => downloadSingleOutput('database_schema', generatedOutputs.database_schema!)}
+                        className="download-single-button"
+                      >
+                        🗄️ Database.mmd
+                      </button>
+                    )}
+                    {generatedOutputs.api_design && (
+                      <button
+                        onClick={() => downloadSingleOutput('api_design', generatedOutputs.api_design!)}
+                        className="download-single-button"
+                      >
+                        🔌 API.md
+                      </button>
+                    )}
+                    {generatedOutputs.deployment_diagram && (
+                      <button
+                        onClick={() => downloadSingleOutput('deployment_diagram', generatedOutputs.deployment_diagram!)}
+                        className="download-single-button"
+                      >
+                        🚀 Deployment.mmd
+                      </button>
+                    )}
+                    {generatedOutputs.system_design && (
+                      <button
+                        onClick={() => downloadSingleOutput('system_design', generatedOutputs.system_design!)}
+                        className="download-single-button"
+                      >
+                        📋 SystemDesign.md
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p className="download-tip">
+                  💡 <strong>Tip:</strong> .mmd files open directly in mermaid.live, .md files work with any markdown editor!
+                </p>
+              </div>
+            )}
+
             <div className="messages-container">
               {messages.length === 0 && !isLoading && (
                 <div className="empty-state">
@@ -960,4 +818,4 @@ function App() {
   );
 }
 
-export default App; 
+export default App;
