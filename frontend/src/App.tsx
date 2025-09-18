@@ -849,66 +849,66 @@ function App() {
 
           <div className="chat-section">
             <div className="messages-container">
-          {messages.length === 0 && !isLoading && (
-            <div className="empty-state">
-              <div className="empty-icon">
-                {chatMode === 'pdf' ? '📄' : chatMode === 'interview' ? '🎯' : '💬'}
-              </div>
-              <h3>
-                {chatMode === 'pdf' 
-                  ? 'Upload a PDF to get started!' 
-                  : chatMode === 'interview' 
-                    ? 'Architecture Designer' 
-                    : 'Start a conversation!'
-                }
-              </h3>
-              <p>
-                {!apiKey.trim() 
-                  ? '🔑 Please enter your OpenAI API key above to get started.'
-                  : chatMode === 'pdf'
-                    ? 'Upload a PDF document and ask questions about its content using AI-powered RAG.'
-                    : chatMode === 'interview'
-                      ? 'Enter the system you want to design and let AI guide you through 5 quick questions. Get professional diagrams and documentation instantly.'
-                      : 'Enter your message below to begin chatting with the AI.'
-                }
-              </p>
-            </div>
-          )}
-          
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={`message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`}
-            >
-              <div className="message-content">
-                <div className="message-role">
-                  {message.role === 'user' ? '👤 You' : '🤖 AI'}
+              {messages.length === 0 && !isLoading && (
+                <div className="empty-state">
+                  <div className="empty-icon">
+                    {chatMode === 'pdf' ? '📄' : chatMode === 'interview' ? '🎯' : '💬'}
+                  </div>
+                  <h3>
+                    {chatMode === 'pdf' 
+                      ? 'Upload a PDF to get started!' 
+                      : chatMode === 'interview' 
+                        ? 'Architecture Designer' 
+                        : 'Start a conversation!'
+                    }
+                  </h3>
+                  <p>
+                    {!apiKey.trim() 
+                      ? '🔑 Please enter your OpenAI API key above to get started.'
+                      : chatMode === 'pdf'
+                        ? 'Upload a PDF document and ask questions about its content using AI-powered RAG.'
+                        : chatMode === 'interview'
+                          ? 'Enter the system you want to design and let AI guide you through 5 quick questions. Get professional diagrams and documentation instantly.'
+                          : 'Enter your message below to begin chatting with the AI.'
+                    }
+                  </p>
                 </div>
-                <div className="message-text">
-                  {message.content}
-                </div>
-                <div className="message-timestamp">
-                  {message.timestamp.toLocaleTimeString()}
-                </div>
-              </div>
-            </div>
-          ))}
-          
-          {isLoading && apiKey.trim() && (
-            <div className="message assistant-message">
-              <div className="message-content">
-                <div className="message-role">🤖 AI</div>
-                <div className="message-text">
-                  <div className="typing-indicator">
-                    <span></span>
-                    <span></span>
-                    <span></span>
+              )}
+              
+              {messages.map((message, index) => (
+                <div
+                  key={index}
+                  className={`message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`}
+                >
+                  <div className="message-content">
+                    <div className="message-role">
+                      {message.role === 'user' ? '👤 You' : '🤖 AI'}
+                    </div>
+                    <div className="message-text">
+                      {message.content}
+                    </div>
+                    <div className="message-timestamp">
+                      {message.timestamp.toLocaleTimeString()}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
-          <div ref={messagesEndRef} />
+              ))}
+              
+              {isLoading && apiKey.trim() && (
+                <div className="message assistant-message">
+                  <div className="message-content">
+                    <div className="message-role">🤖 AI</div>
+                    <div className="message-text">
+                      <div className="typing-indicator">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
             </div>
 
             <form onSubmit={handleSubmit} className="input-form">
