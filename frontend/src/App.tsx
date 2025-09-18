@@ -576,7 +576,8 @@ function App() {
           </div>
         </header>
 
-        <div className="settings-panel">
+        <div className="main-content">
+          <div className="sidebar">
           <div className="setting-group">
             <label htmlFor="apiKey">OpenAI API Key:</label>
             <input
@@ -844,8 +845,10 @@ function App() {
             </p>
           </div>
         )}
+          </div>
 
-        <div className="messages-container">
+          <div className="chat-section">
+            <div className="messages-container">
           {messages.length === 0 && !isLoading && (
             <div className="empty-state">
               <div className="empty-icon">
@@ -906,9 +909,9 @@ function App() {
             </div>
           )}
           <div ref={messagesEndRef} />
-        </div>
+            </div>
 
-        <form onSubmit={handleSubmit} className="input-form">
+            <form onSubmit={handleSubmit} className="input-form">
           <div className="input-container">
             <input
               type="text"
@@ -943,12 +946,14 @@ function App() {
               {isLoading ? '⏳' : '📤'}
             </button>
           </div>
-        </form>
+            </form>
 
-        <div className="chat-actions">
-          <button onClick={clearChat} className="clear-button">
-            🗑️ Clear Chat
-          </button>
+            <div className="chat-actions">
+              <button onClick={clearChat} className="clear-button">
+                🗑️ Clear Chat
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
