@@ -20,6 +20,15 @@ interface PDFUploadResponse {
   chunk_count: number;
 }
 
+interface InterviewResponse {
+  session_id: string;
+  question?: string;
+  is_complete: boolean;
+  mermaid_diagram?: string;
+  system_design?: string;
+  progress: number;
+}
+
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -30,7 +39,17 @@ function App() {
   const [uploadedPDFs, setUploadedPDFs] = useState<UploadedPDF[]>([]);
   const [selectedPDF, setSelectedPDF] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
-  const [chatMode, setChatMode] = useState<'general' | 'pdf'>('general');
+  const [chatMode, setChatMode] = useState<'general' | 'pdf' | 'interview'>('interview');
+  // Interview state
+  const [interviewSession, setInterviewSession] = useState<string>('');
+  const [systemRequirements, setSystemRequirements] = useState('');
+  const [currentQuestion, setCurrentQuestion] = useState<string>('');
+  const [interviewProgress, setInterviewProgress] = useState<number>(0);
+  const [isInterviewComplete, setIsInterviewComplete] = useState<boolean>(false);
+  const [mermaidDiagram, setMermaidDiagram] = useState<string>('');
+  const [systemDesign, setSystemDesign] = useState<string>('');
+  const [interviewStarted, setInterviewStarted] = useState<boolean>(false);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const assistantMessageRef = useRef<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -116,9 +135,147 @@ function App() {
     }
   };
 
+  const startInterview = async () => {
+    if (!systemRequirements.trim() || !apiKey.trim()) {
+      alert('Please enter system requirements and API key');
+      return;
+    }
+
+    setIsLoading(true);
+    const sessionId = `interview_${Date.now()}`;
+    setInterviewSession(sessionId);
+
+    try {
+      const response = await fetch('/api/interview/start', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          session_id: sessionId,
+          system_requirements: systemRequirements,
+          api_key: apiKey
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result: InterviewResponse = await response.json();
+      setCurrentQuestion(result.question || '');
+      setInterviewProgress(result.progress);
+      setInterviewStarted(true);
+
+      // Add first question to messages
+      const questionMessage: Message = {
+        role: 'assistant',
+        content: result.question || '',
+        timestamp: new Date()
+      };
+      setMessages([questionMessage]);
+
+    } catch (error) {
+      console.error('Error starting interview:', error);
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: `Error starting interview: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        timestamp: new Date()
+      };
+      setMessages([errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const submitInterviewAnswer = async (answer: string) => {
+    if (!interviewSession || !answer.trim()) return;
+
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/interview/answer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          session_id: interviewSession,
+          user_answer: answer,
+          api_key: apiKey
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result: InterviewResponse = await response.json();
+      setInterviewProgress(result.progress);
+
+      if (result.is_complete) {
+        setIsInterviewComplete(true);
+        setMermaidDiagram(result.mermaid_diagram || '');
+        setSystemDesign(result.system_design || '');
+
+        // Add final results to messages
+        const completionMessage: Message = {
+          role: 'assistant',
+          content: `🎉 Interview Complete! Here's your system design:\n\n**Mermaid Diagram:**\n\`\`\`\n${result.mermaid_diagram}\n\`\`\`\n\n**System Design:**\n${result.system_design}`,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, completionMessage]);
+      } else {
+        setCurrentQuestion(result.question || '');
+
+        // Add next question to messages
+        const questionMessage: Message = {
+          role: 'assistant',
+          content: result.question || '',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, questionMessage]);
+      }
+
+    } catch (error) {
+      console.error('Error submitting answer:', error);
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputMessage.trim() || !apiKey.trim()) return;
+
+    // Handle interview mode
+    if (chatMode === 'interview') {
+      if (!interviewStarted) {
+        alert('Please start the interview first');
+        return;
+      }
+      
+      const userMessage = inputMessage.trim();
+      setInputMessage('');
+      
+      // Add user message to chat
+      const newUserMessage: Message = {
+        role: 'user',
+        content: userMessage,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, newUserMessage]);
+      
+      // Submit answer to interview system
+      await submitInterviewAnswer(userMessage);
+      return;
+    }
 
     // Check if PDF mode is selected but no PDF is chosen
     if (chatMode === 'pdf' && !selectedPDF) {
@@ -276,13 +433,14 @@ function App() {
           </div>
 
           <div className="setting-group">
-            <label htmlFor="chatMode">Chat Mode:</label>
+            <label htmlFor="chatMode">Mode:</label>
             <select
               id="chatMode"
               value={chatMode}
-              onChange={(e) => setChatMode(e.target.value as 'general' | 'pdf')}
+              onChange={(e) => setChatMode(e.target.value as 'general' | 'pdf' | 'interview')}
               className="model-select"
             >
+              <option value="interview">System Design Interview</option>
               <option value="general">General Chat</option>
               <option value="pdf">PDF RAG Chat</option>
             </select>
@@ -299,6 +457,48 @@ function App() {
                 className="developer-message-input"
                 rows={3}
               />
+            </div>
+          )}
+
+          {chatMode === 'interview' && (
+            <div className="setting-group">
+              <label htmlFor="systemRequirements">System to Design:</label>
+              <textarea
+                id="systemRequirements"
+                value={systemRequirements}
+                onChange={(e) => setSystemRequirements(e.target.value)}
+                placeholder="e.g., Design a chat application like WhatsApp"
+                className="developer-message-input"
+                rows={2}
+                disabled={interviewStarted}
+              />
+            </div>
+          )}
+
+          {chatMode === 'interview' && !interviewStarted && (
+            <div className="setting-group">
+              <button
+                type="button"
+                onClick={startInterview}
+                disabled={!apiKey.trim() || !systemRequirements.trim() || isLoading}
+                className="interview-start-button"
+              >
+                {isLoading ? '⏳ Starting Interview...' : '🎯 Start System Design Interview'}
+              </button>
+            </div>
+          )}
+
+          {chatMode === 'interview' && interviewStarted && (
+            <div className="setting-group">
+              <div className="interview-progress">
+                <label>Progress: {interviewProgress}%</label>
+                <div className="progress-bar">
+                  <div 
+                    className="progress-fill" 
+                    style={{ width: `${interviewProgress}%` }}
+                  ></div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -351,15 +551,22 @@ function App() {
           {messages.length === 0 && !isLoading && (
             <div className="empty-state">
               <div className="empty-icon">
-                {chatMode === 'pdf' ? '📄' : '💬'}
+                {chatMode === 'pdf' ? '📄' : chatMode === 'interview' ? '🎯' : '💬'}
               </div>
               <h3>
-                {chatMode === 'pdf' ? 'Upload a PDF to get started!' : 'Start a conversation!'}
+                {chatMode === 'pdf' 
+                  ? 'Upload a PDF to get started!' 
+                  : chatMode === 'interview' 
+                    ? 'System Design Interview' 
+                    : 'Start a conversation!'
+                }
               </h3>
               <p>
                 {chatMode === 'pdf' 
                   ? 'Upload a PDF document and ask questions about its content using AI-powered RAG.'
-                  : 'Enter your message below to begin chatting with the AI.'
+                  : chatMode === 'interview'
+                    ? 'Enter the system you want to design and start your technical interview. The AI will guide you through 5 questions and generate a complete system design with Mermaid diagrams.'
+                    : 'Enter your message below to begin chatting with the AI.'
                 }
               </p>
             </div>
@@ -410,12 +617,15 @@ function App() {
               placeholder={
                 chatMode === 'pdf' 
                   ? (selectedPDF ? "Ask a question about your PDF..." : "Upload a PDF first...")
-                  : "Type your message here..."
+                  : chatMode === 'interview'
+                    ? (interviewStarted ? "Enter your answer to the interview question..." : "Start the interview first...")
+                    : "Type your message here..."
               }
               disabled={
                 isLoading || 
                 !apiKey.trim() || 
-                (chatMode === 'pdf' && !selectedPDF)
+                (chatMode === 'pdf' && !selectedPDF) ||
+                (chatMode === 'interview' && !interviewStarted)
               }
               className="message-input"
             />
@@ -425,7 +635,8 @@ function App() {
                 isLoading || 
                 !inputMessage.trim() || 
                 !apiKey.trim() || 
-                (chatMode === 'pdf' && !selectedPDF)
+                (chatMode === 'pdf' && !selectedPDF) ||
+                (chatMode === 'interview' && !interviewStarted)
               }
               className="send-button"
             >

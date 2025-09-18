@@ -26,10 +26,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI application with a title
-app = FastAPI(title="AI Maker Space - PDF RAG Chat API")
+app = FastAPI(title="AI Maker Space - System Design Interview API")
 
 # Global state for storing PDF vector databases
 pdf_databases: Dict[str, VectorDatabase] = {}
+# Global system design knowledge base
+system_design_knowledge: VectorDatabase = None
+# Interview state
+interview_sessions: Dict[str, Dict[str, Any]] = {}
 
 # Configure CORS (Cross-Origin Resource Sharing) middleware
 # This allows the API to be accessed from different domains/origins
@@ -81,10 +85,76 @@ class PDFUploadResponse(BaseModel):
     message: str
     chunk_count: int
 
+# Interview request/response models
+class InterviewStartRequest(BaseModel):
+    session_id: str
+    system_requirements: str
+    api_key: str
+
+class InterviewQuestionRequest(BaseModel):
+    session_id: str
+    user_answer: str
+    api_key: str
+
+class InterviewResponse(BaseModel):
+    session_id: str
+    question: Optional[str] = None
+    is_complete: bool = False
+    mermaid_diagram: Optional[str] = None
+    system_design: Optional[str] = None
+    progress: int = 0
+
+async def load_system_design_pdfs():
+    """Load and index all PDFs from the system_design_pdfs folder on startup."""
+    global system_design_knowledge
+    
+    try:
+        # Set a default API key for startup (will be overridden by user's key)
+        os.environ.setdefault("OPENAI_API_KEY", "dummy-key-for-startup")
+        
+        pdf_folder = Path("../system_design_pdfs")
+        if not pdf_folder.exists():
+            logger.warning("system_design_pdfs folder not found")
+            return
+        
+        pdf_files = list(pdf_folder.glob("*.pdf"))
+        if not pdf_files:
+            logger.info("No PDF files found in system_design_pdfs folder")
+            return
+        
+        logger.info(f"Found {len(pdf_files)} PDF files to index")
+        all_chunks = []
+        
+        for pdf_file in pdf_files:
+            logger.info(f"Processing {pdf_file.name}")
+            pdf_loader = PDFLoader(str(pdf_file))
+            pdf_loader.load_file()
+            
+            if pdf_loader.documents:
+                text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+                chunks = text_splitter.split_texts(pdf_loader.documents)
+                # Add filename context to chunks
+                contextual_chunks = [f"[From {pdf_file.name}]: {chunk}" for chunk in chunks]
+                all_chunks.extend(contextual_chunks)
+                logger.info(f"Added {len(chunks)} chunks from {pdf_file.name}")
+        
+        if all_chunks:
+            # Create knowledge base (will be initialized properly when user provides API key)
+            system_design_knowledge = VectorDatabase()
+            logger.info(f"System design knowledge base ready with {len(all_chunks)} chunks")
+        
+    except Exception as e:
+        logger.error(f"Error loading system design PDFs: {str(e)}")
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize the system design knowledge base on startup."""
+    await load_system_design_pdfs()
+
 # Root endpoint for testing
 @app.get("/")
 async def root():
-    return {"message": "AI Maker Space API is running!"}
+    return {"message": "AI Maker Space System Design Interview API is running!"}
 
 # PDF Upload endpoint
 @app.post("/api/upload-pdf", response_model=PDFUploadResponse)
@@ -176,6 +246,251 @@ async def get_uploaded_pdfs():
             for pdf_id, vector_db in pdf_databases.items()
         ]
     }
+
+# Interview endpoints
+@app.post("/api/interview/start", response_model=InterviewResponse)
+async def start_interview(request: InterviewStartRequest):
+    """Start a new system design interview session."""
+    try:
+        global system_design_knowledge
+        
+        # Validate API key
+        if not request.api_key or not request.api_key.startswith("sk-"):
+            raise HTTPException(status_code=400, detail="Valid OpenAI API key required")
+        
+        # Set API key for this session
+        os.environ["OPENAI_API_KEY"] = request.api_key
+        
+        # Initialize system design knowledge base if not done
+        if system_design_knowledge is None:
+            await load_system_design_pdfs()
+        
+        # Initialize system design knowledge base with embeddings
+        if system_design_knowledge and len(system_design_knowledge.vectors) == 0:
+            # Re-load and index with proper API key
+            pdf_folder = Path("../system_design_pdfs")
+            all_chunks = []
+            
+            for pdf_file in pdf_folder.glob("*.pdf"):
+                pdf_loader = PDFLoader(str(pdf_file))
+                pdf_loader.load_file()
+                
+                if pdf_loader.documents:
+                    text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+                    chunks = text_splitter.split_texts(pdf_loader.documents)
+                    contextual_chunks = [f"[From {pdf_file.name}]: {chunk}" for chunk in chunks]
+                    all_chunks.extend(contextual_chunks)
+            
+            if all_chunks:
+                embedding_model = EmbeddingModel()
+                system_design_knowledge = VectorDatabase(embedding_model)
+                await system_design_knowledge.abuild_from_list(all_chunks)
+                logger.info(f"Indexed {len(all_chunks)} chunks for system design knowledge")
+        
+        # Initialize interview session
+        interview_sessions[request.session_id] = {
+            "requirements": request.system_requirements,
+            "current_question": 0,
+            "answers": [],
+            "api_key": request.api_key
+        }
+        
+        # Generate first question
+        first_question = await generate_interview_question(request.session_id, request.system_requirements, None)
+        
+        return InterviewResponse(
+            session_id=request.session_id,
+            question=first_question,
+            progress=10
+        )
+        
+    except Exception as e:
+        logger.error(f"Error starting interview: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/interview/answer", response_model=InterviewResponse)
+async def answer_question(request: InterviewQuestionRequest):
+    """Process user's answer and provide next question or final design."""
+    try:
+        if request.session_id not in interview_sessions:
+            raise HTTPException(status_code=404, detail="Interview session not found")
+        
+        session = interview_sessions[request.session_id]
+        session["answers"].append(request.user_answer)
+        session["current_question"] += 1
+        
+        # Set API key
+        os.environ["OPENAI_API_KEY"] = session["api_key"]
+        
+        # Check if we have enough answers (5 questions total)
+        if session["current_question"] >= 5:
+            # Generate final system design and mermaid diagram
+            mermaid_diagram, system_design = await generate_final_design(request.session_id)
+            
+            return InterviewResponse(
+                session_id=request.session_id,
+                is_complete=True,
+                mermaid_diagram=mermaid_diagram,
+                system_design=system_design,
+                progress=100
+            )
+        
+        # Generate next question
+        next_question = await generate_interview_question(
+            request.session_id, 
+            session["requirements"], 
+            request.user_answer
+        )
+        
+        progress = min(90, (session["current_question"] + 1) * 20)
+        
+        return InterviewResponse(
+            session_id=request.session_id,
+            question=next_question,
+            progress=progress
+        )
+        
+    except Exception as e:
+        logger.error(f"Error processing answer: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+async def generate_interview_question(session_id: str, requirements: str, previous_answer: Optional[str]) -> str:
+    """Generate the next interview question based on system design knowledge."""
+    session = interview_sessions[session_id]
+    question_number = session["current_question"] + 1
+    
+    # Get relevant context from system design knowledge
+    context = ""
+    if system_design_knowledge:
+        search_query = f"{requirements} system design question {question_number}"
+        relevant_chunks = system_design_knowledge.search_by_text(search_query, k=3, return_as_text=True)
+        context = "\n".join(relevant_chunks)
+    
+    # Question templates based on common system design interview flow
+    question_templates = [
+        "Let's start with requirements gathering. Can you clarify the functional and non-functional requirements for this system? What scale are we targeting (users, requests per second, data volume)?",
+        "Now let's discuss the high-level architecture. What are the main components you would include in this system? How would they interact with each other?",
+        "Let's dive deeper into the database design. What type of database would you choose and why? How would you structure the data schema?",
+        "How would you handle scalability concerns? What strategies would you use for scaling different parts of the system (database, application servers, etc.)?",
+        "Finally, let's discuss reliability and monitoring. How would you ensure the system is fault-tolerant? What would you monitor and how would you handle failures?"
+    ]
+    
+    base_question = question_templates[min(question_number - 1, len(question_templates) - 1)]
+    
+    # Use AI to generate a contextual question
+    chat_model = ChatOpenAI(model_name="gpt-4o-mini")
+    
+    system_prompt = f"""You are conducting a system design interview. The candidate needs to design: {requirements}
+
+CONTEXT FROM SYSTEM DESIGN KNOWLEDGE:
+{context}
+
+Current question number: {question_number}/5
+Previous answer: {previous_answer or "None (this is the first question)"}
+
+Generate a specific, detailed follow-up question that:
+1. Builds on the previous answer if provided
+2. Uses the system design knowledge context
+3. Focuses on the aspect indicated by the base question: {base_question}
+4. Is specific to the system being designed
+5. Encourages detailed technical discussion
+
+Keep the question concise but thorough."""
+    
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": f"Generate the next interview question for designing: {requirements}"}
+    ]
+    
+    response = chat_model.run(messages)
+    return response
+
+async def generate_final_design(session_id: str) -> tuple[str, str]:
+    """Generate final mermaid diagram and system design document."""
+    session = interview_sessions[session_id]
+    requirements = session["requirements"]
+    answers = session["answers"]
+    
+    # Get comprehensive context from system design knowledge
+    context = ""
+    if system_design_knowledge:
+        search_queries = [
+            f"{requirements} architecture diagram",
+            f"{requirements} system components",
+            f"{requirements} database design",
+            f"{requirements} scalability patterns"
+        ]
+        
+        all_chunks = []
+        for query in search_queries:
+            chunks = system_design_knowledge.search_by_text(query, k=3, return_as_text=True)
+            all_chunks.extend(chunks)
+        
+        context = "\n".join(set(all_chunks))  # Remove duplicates
+    
+    chat_model = ChatOpenAI(model_name="gpt-4o")
+    
+    # Generate Mermaid diagram
+    mermaid_prompt = f"""Based on the system design interview for: {requirements}
+
+ANSWERS PROVIDED:
+{chr(10).join([f"Q{i+1}: {answer}" for i, answer in enumerate(answers)])}
+
+SYSTEM DESIGN KNOWLEDGE CONTEXT:
+{context}
+
+Generate a detailed Mermaid sequence diagram that shows the flow of a typical user request through the system. 
+
+Requirements:
+1. Use proper Mermaid sequence diagram syntax
+2. Include all major components (client, load balancer, API gateway, services, databases, caches, etc.)
+3. Show the complete request/response flow
+4. Include error handling paths
+5. Add notes for important design decisions
+6. Make it production-ready and comprehensive
+7. Return ONLY the mermaid code, no markdown formatting, no explanations
+
+The output should be ready to copy-paste into mermaid.live"""
+
+    mermaid_messages = [
+        {"role": "system", "content": "You are a senior system architect. Generate only the mermaid sequence diagram code."},
+        {"role": "user", "content": mermaid_prompt}
+    ]
+    
+    mermaid_diagram = chat_model.run(mermaid_messages)
+    
+    # Generate system design document
+    design_prompt = f"""Based on the system design interview for: {requirements}
+
+ANSWERS PROVIDED:
+{chr(10).join([f"Q{i+1}: {answer}" for i, answer in enumerate(answers)])}
+
+SYSTEM DESIGN KNOWLEDGE CONTEXT:
+{context}
+
+Generate a comprehensive, production-ready system design document that includes:
+
+1. **System Overview**
+2. **Architecture Components**
+3. **Database Design**
+4. **API Design**
+5. **Scalability Strategy**
+6. **Reliability & Fault Tolerance**
+7. **Security Considerations**
+8. **Monitoring & Observability**
+9. **Deployment Strategy**
+10. **Cost Optimization**
+
+Make it detailed, technical, and production-ready. Include specific technologies, patterns, and best practices."""
+
+    design_messages = [
+        {"role": "system", "content": "You are a senior system architect creating production-ready system designs."},
+        {"role": "user", "content": design_prompt}
+    ]
+    
+    system_design = chat_model.run(design_messages)
+    
+    return mermaid_diagram, system_design
 
 # Preflight handler for CORS
 @app.options("/api/chat")
